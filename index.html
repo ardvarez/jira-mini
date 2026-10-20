@@ -1874,8 +1874,8 @@
       }
     }
     function openSyncModal() {
-      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
-      document.getElementById('cf-worker-url').value = cf.workerUrl || '';
+      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{"workerUrl":"https://jira-mini.workers.dev"}');
+      document.getElementById('cf-worker-url').value = cf.workerUrl || 'https://jira-mini.workers.dev';
       document.getElementById('cf-api-key').value = cf.apiKey || '';
       document.getElementById('cf-feedback').classList.add('hidden');
 

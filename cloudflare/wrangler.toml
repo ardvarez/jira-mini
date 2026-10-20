@@ -1,4 +1,4 @@
-name = "jira-mini-backend"
+name = "jira-mini"
 main = "worker.js"
 compatibility_date = "2024-04-01"
 account_id = "30a697e36a3b4e6299a11a61da9b5906"
