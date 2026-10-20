@@ -4,11 +4,6 @@ Lightweight, modern Jira-style Scrum & Kanban board tailored for Business Analys
 
 Live GitHub Pages URL: [https://ardvarez.github.io/jira-mini/](https://ardvarez.github.io/jira-mini/)
 
-## 🔑 Login Credentials
-
-* **Authorized Email:** `ardvarez@gmail.com`
-* **Default Password:** `ardvarez123`
-
 ## 🚀 Key Features
 
 * **Authentication Guard:** Jira-style login screen restricting access to authorized user.
