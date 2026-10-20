@@ -256,7 +256,7 @@ export default {
 
       return jsonResponse({ status: 'ok', service: 'Jira Mini Hardened API' }, 200, corsHeaders);
     } catch (err) {
-      return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
+      return jsonResponse({ error: err.message, stack: err.stack }, 500, corsHeaders);
     }
   }
 };

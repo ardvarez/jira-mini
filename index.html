@@ -1863,10 +1863,10 @@
       try {
         const headers = {};
         if (key) headers['X-API-KEY'] = key;
-        const res = await fetch(`${url.replace(/\/$/, '')}/api/data?project=PINSP`, { headers });
+        const res = await fetch(`${url.replace(/\/$/, '')}/`, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
         const data = await res.json();
-        fb.textContent = `Connected successfully! Cloudflare D1 & R2 Backend online (${data.issues ? data.issues.length : 0} items retrieved).`;
+        fb.textContent = `Connected successfully! Cloudflare D1 & R2 Backend online (${data.service || 'Ready'}).`;
         fb.className = 'p-2 rounded text-xs bg-emerald-100 text-emerald-800 block';
       } catch (err) {
         fb.textContent = `Connection failed: ${err.message}. Check CORS or deploy status.`;
@@ -1874,8 +1874,8 @@
       }
     }
     function openSyncModal() {
-      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{"workerUrl":"https://jira-mini.workers.dev"}');
-      document.getElementById('cf-worker-url').value = cf.workerUrl || 'https://jira-mini.workers.dev';
+      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{"workerUrl":"https://jira-mini.jira-mini.workers.dev"}');
+      document.getElementById('cf-worker-url').value = cf.workerUrl || 'https://jira-mini.jira-mini.workers.dev';
       document.getElementById('cf-api-key').value = cf.apiKey || '';
       document.getElementById('cf-feedback').classList.add('hidden');
 
