@@ -111,7 +111,7 @@ export default {
         return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
-      // 5. POST /api/upload (Upload Evidence to Cloudflare R2)
+      // 5. POST /api/upload (Upload Evidence to Cloudflare R2: Split into /Image and /File)
       if (url.pathname === '/api/upload' && request.method === 'POST') {
         const formData = await request.formData();
         const file = formData.get('file');
@@ -121,12 +121,15 @@ export default {
           return jsonResponse({ error: 'No file uploaded' }, 400, corsHeaders);
         }
 
-        const ext = file.name.split('.').pop() || 'png';
-        const fileKey = `evidence/${issueId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
+        const ext = file.name.split('.').pop().toLowerCase() || 'png';
+        const isImage = file.type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
+        const folder = isImage ? 'Image' : 'File';
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileKey = `${folder}/${issueId}/${Date.now()}-${safeName}`;
 
-        // Upload directly to Cloudflare R2 Bucket
+        // Upload directly to Cloudflare R2 Bucket (in Image/ or File/ folder)
         await env.BUCKET.put(fileKey, file.stream(), {
-          httpMetadata: { contentType: file.type || 'image/png' }
+          httpMetadata: { contentType: file.type || (isImage ? 'image/png' : 'application/octet-stream') }
         });
 
         // Generate file URL (served via this worker endpoint /files/:key)
@@ -137,7 +140,7 @@ export default {
         await env.DB.prepare(`
           INSERT INTO attachments (id, issue_id, file_name, file_url, file_size, content_type)
           VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(attachmentId, issueId, file.name, fileUrl, file.size, file.type).run();
+        `).bind(attachmentId, issueId, file.name, fileUrl, file.size, file.type || (isImage ? 'image/png' : 'application/octet-stream')).run();
 
         return jsonResponse({
           success: true,
@@ -147,7 +150,8 @@ export default {
             file_name: file.name,
             file_url: fileUrl,
             file_size: file.size,
-            content_type: file.type
+            content_type: file.type,
+            folder: folder
           }
         }, 200, corsHeaders);
       }
