@@ -380,13 +380,35 @@ export default {
       if (url.pathname === '/api/comments' && request.method === 'POST') {
         await ensureDatabaseSchema(env.DB);
         const { id, issue_id, author, comment } = await request.json();
-        const commentId = id || crypto.randomUUID();
-        await env.DB.prepare(`
-          INSERT INTO comments (id, issue_id, author, comment, created_at)
-          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `).bind(sanitizeString(commentId), sanitizeString(issue_id), sanitizeString(author || 'Ardan'), comment).run();
+        const commentId = String(id || crypto.randomUUID());
+        try {
+          await env.DB.prepare(`
+            INSERT INTO comments (id, issue_id, author, comment, created_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(id) DO UPDATE SET
+              comment = excluded.comment,
+              author = excluded.author
+          `).bind(sanitizeString(commentId), sanitizeString(issue_id), sanitizeString(author || 'Ardan'), typeof comment === 'string' ? comment : JSON.stringify(comment)).run();
+        } catch (insertErr) {
+          if (insertErr.message && insertErr.message.includes('MISMATCH')) {
+            // Fallback for legacy INTEGER PRIMARY KEY schema
+            await env.DB.prepare(`
+              INSERT INTO comments (issue_id, author, comment, created_at)
+              VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            `).bind(sanitizeString(issue_id), sanitizeString(author || 'Ardan'), typeof comment === 'string' ? comment : JSON.stringify(comment)).run();
+          } else {
+            throw insertErr;
+          }
+        }
 
         return jsonResponse({ success: true, id: commentId }, 200, corsHeaders);
+      }
+
+      // 7b. DELETE /api/comments/:id
+      if (url.pathname.startsWith('/api/comments/') && request.method === 'DELETE') {
+        const id = sanitizeString(url.pathname.split('/').pop());
+        await env.DB.prepare('DELETE FROM comments WHERE id = ?').bind(id).run();
+        return jsonResponse({ success: true, deletedComment: id }, 200, corsHeaders);
       }
 
       // 8. POST /api/upload (Hardened R2 Upload)
@@ -593,16 +615,50 @@ async function ensureDatabaseSchema(db) {
       ON CONFLICT(id) DO NOTHING
     `).run();
 
-    // 3. Comments Table with UUID PK support
-    await db.prepare(`
-      CREATE TABLE IF NOT EXISTS comments (
-        id TEXT PRIMARY KEY,
-        issue_id TEXT NOT NULL,
-        author TEXT NOT NULL,
-        comment TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `).run();
+    // 3. Comments Table with UUID PK support & migration
+    try {
+      const info = await db.prepare("PRAGMA table_info(comments)").all();
+      const idCol = (info.results || []).find(c => c.name === 'id');
+      if (idCol && (idCol.type.toUpperCase() === 'INTEGER' || idCol.type.toUpperCase() === 'INT')) {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS comments_uuid (
+            id TEXT PRIMARY KEY,
+            issue_id TEXT NOT NULL,
+            author TEXT NOT NULL,
+            comment TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
+        await db.prepare(`
+          INSERT OR IGNORE INTO comments_uuid (id, issue_id, author, comment, created_at)
+          SELECT CAST(id AS TEXT), issue_id, author, comment, created_at FROM comments
+        `).run();
+        await db.prepare('DROP TABLE comments').run();
+        await db.prepare('ALTER TABLE comments_uuid RENAME TO comments').run();
+        await db.prepare('CREATE INDEX IF NOT EXISTS idx_comments_issue_created ON comments(issue_id, created_at ASC)').run();
+      } else {
+        await db.prepare(`
+          CREATE TABLE IF NOT EXISTS comments (
+            id TEXT PRIMARY KEY,
+            issue_id TEXT NOT NULL,
+            author TEXT NOT NULL,
+            comment TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `).run();
+      }
+    } catch (migErr) {
+      console.warn('Comments table check/migration:', migErr);
+      await db.prepare(`
+        CREATE TABLE IF NOT EXISTS comments (
+          id TEXT PRIMARY KEY,
+          issue_id TEXT NOT NULL,
+          author TEXT NOT NULL,
+          comment TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `).run();
+    }
 
     // 4. High-Performance Indexes for Large-Scale Data
     const indexes = [

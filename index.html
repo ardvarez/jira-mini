@@ -2694,6 +2694,17 @@
       }
     }
 
+    async function deleteCommentFromD1(commentId) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/comments/${encodeURIComponent(commentId)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      } catch (err) {
+        console.warn('Delete comment from D1 failed:', err);
+      }
+    }
+
     // ================= AUTHENTICATION & REGISTRATION =================
     function switchAuthTab(tab) {
       const loginTab = document.getElementById('tab-auth-login');
@@ -5249,15 +5260,18 @@
 
       saveState();
       renderComments(issue.comments);
-      syncCommentToD1(issue.id, JSON.stringify(current));
+      syncCommentToD1(issue.id, JSON.stringify(current), current.id);
     }
 
     function deleteComment(idx) {
       const issue = state.issues.find(i => i.id === state.activeIssueId);
       if (!issue || !issue.comments) return;
-      issue.comments.splice(idx, 1);
+      const removed = issue.comments.splice(idx, 1)[0];
       saveState();
       renderComments(issue.comments);
+      if (removed && removed.id) {
+        deleteCommentFromD1(removed.id);
+      }
     }
 
     function addComment() {
