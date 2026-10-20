@@ -20,12 +20,12 @@ INSERT OR REPLACE INTO projects (id, name, code) VALUES
 ('NPST', 'New PST', 'NP');
 
 -- Seed Users
-INSERT OR REPLACE INTO users (email, name, role, password_hash) VALUES
-('ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'),
-('banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', ''),
-('bagus@pln.co.id', 'Bagus', 'DEV', ''),
-('qc@pln.co.id', 'QC Specialist', 'QC', ''),
-('ba@pln.co.id', 'BA Analyst', 'BA', '');
+INSERT OR REPLACE INTO users (email, name, role, password_hash, is_admin) VALUES
+('ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a', 1),
+('banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', '', 1),
+('bagus@pln.co.id', 'Bagus', 'DEV', '', 0),
+('qc@pln.co.id', 'QC Specialist', 'QC', '', 0),
+('ba@pln.co.id', 'BA Analyst', 'BA', '', 0);
 
 -- Seed Epics
 INSERT OR REPLACE INTO epics (id, project_id, name, color) VALUES

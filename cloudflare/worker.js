@@ -63,7 +63,7 @@ export default {
           return jsonResponse({
             success: true,
             token: token,
-            user: { email: expectedEmail, name: 'Ardan', role: 'PM' }
+            user: { email: expectedEmail, name: 'Ardan', role: 'PM', is_admin: 1 }
           }, 200, corsHeaders);
         }
 
@@ -89,10 +89,11 @@ export default {
 
             if (matched) {
               const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
+              const isAdmin = (dbUser.is_admin === 1 || email.toLowerCase() === 'ardvarez@gmail.com' || email.toLowerCase() === 'banyurizkika@gmail.com') ? 1 : 0;
               return jsonResponse({
                 success: true,
                 token: token,
-                user: { email: dbUser.email, name: dbUser.name, role: dbUser.role }
+                user: { email: dbUser.email, name: dbUser.name, role: dbUser.role, is_admin: isAdmin }
               }, 200, corsHeaders);
             }
           }
@@ -107,27 +108,29 @@ export default {
     // Register Endpoint: /api/auth/register
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
       try {
-        const { name, email, role, password, password_hash } = await request.json();
+        const { name, email, role, password, password_hash, is_admin } = await request.json();
         if (!email || !name) {
           return jsonResponse({ error: 'Name and email are required' }, 400, corsHeaders);
         }
         await ensureUsersTable(env.DB);
+        const adminVal = (is_admin === 1 || is_admin === true || email.toLowerCase() === 'ardvarez@gmail.com' || email.toLowerCase() === 'banyurizkika@gmail.com') ? 1 : 0;
         if (env.DB) {
           await env.DB.prepare(`
-            INSERT INTO users (email, name, role, password_hash, created_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO users (email, name, role, password_hash, is_admin, created_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(email) DO UPDATE SET
               name = excluded.name,
               role = excluded.role,
+              is_admin = COALESCE(excluded.is_admin, users.is_admin),
               password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
-          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || password || '').run();
+          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || password || '', adminVal).run();
         }
 
         const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
         return jsonResponse({
           success: true,
           token: token,
-          user: { name, email, role: role || 'QC' }
+          user: { name, email, role: role || 'QC', is_admin: adminVal }
         }, 200, corsHeaders);
       } catch (e) {
         return jsonResponse({ error: 'Malformed request' }, 400, corsHeaders);
@@ -155,7 +158,7 @@ export default {
         await ensureUsersTable(env.DB);
         if (env.DB) {
           const users = await env.DB.prepare(
-            'SELECT email, name, role, password_hash, created_at FROM users ORDER BY name ASC'
+            'SELECT email, name, role, password_hash, is_admin, created_at FROM users ORDER BY name ASC'
           ).all();
           return jsonResponse({ users: users.results || [] }, 200, corsHeaders);
         }
@@ -164,20 +167,22 @@ export default {
 
       // POST /api/users (Create / Add single user)
       if (url.pathname === '/api/users' && request.method === 'POST') {
-        const { email, name, role, password_hash } = await request.json();
+        const { email, name, role, password_hash, is_admin } = await request.json();
         if (!email || !name) {
           return jsonResponse({ error: 'Name and email are required' }, 400, corsHeaders);
         }
         await ensureUsersTable(env.DB);
+        const adminVal = (is_admin === 1 || is_admin === true || email.toLowerCase() === 'ardvarez@gmail.com' || email.toLowerCase() === 'banyurizkika@gmail.com') ? 1 : 0;
         if (env.DB) {
           await env.DB.prepare(`
-            INSERT INTO users (email, name, role, password_hash, created_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO users (email, name, role, password_hash, is_admin, created_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(email) DO UPDATE SET
               name = excluded.name,
               role = excluded.role,
+              is_admin = excluded.is_admin,
               password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
-          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || '').run();
+          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || '', adminVal).run();
         }
         return jsonResponse({ success: true, email }, 200, corsHeaders);
       }
@@ -192,32 +197,39 @@ export default {
         if (env.DB) {
           for (const u of users) {
             if (!u.email || !u.name) continue;
+            const uAdminVal = (u.is_admin === 1 || u.is_admin === true || u.isAdmin === true || u.email.toLowerCase() === 'ardvarez@gmail.com' || u.email.toLowerCase() === 'banyurizkika@gmail.com') ? 1 : 0;
             await env.DB.prepare(`
-              INSERT INTO users (email, name, role, password_hash, created_at)
-              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+              INSERT INTO users (email, name, role, password_hash, is_admin, created_at)
+              VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
               ON CONFLICT(email) DO UPDATE SET
                 name = excluded.name,
                 role = excluded.role,
+                is_admin = COALESCE(excluded.is_admin, users.is_admin),
                 password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
-            `).bind(sanitizeString(u.email.toLowerCase()), sanitizeString(u.name), sanitizeString(u.role || 'QC'), u.password_hash || '').run();
+            `).bind(sanitizeString(u.email.toLowerCase()), sanitizeString(u.name), sanitizeString(u.role || 'QC'), u.password_hash || '', uAdminVal).run();
           }
         }
         return jsonResponse({ success: true, count: users.length }, 200, corsHeaders);
       }
 
-      // PUT /api/users/:email (Edit user role / password)
+      // PUT /api/users/:email (Edit user role / password / is_admin)
       if (url.pathname.startsWith('/api/users/') && request.method === 'PUT') {
         const email = decodeURIComponent(url.pathname.replace('/api/users/', '')).toLowerCase();
-        const { name, role, password_hash } = await request.json();
+        const { name, role, password_hash, is_admin } = await request.json();
         await ensureUsersTable(env.DB);
         if (env.DB) {
+          let adminParam = null;
+          if (is_admin !== undefined && is_admin !== null) {
+            adminParam = (is_admin === 1 || is_admin === true) ? 1 : 0;
+          }
           await env.DB.prepare(`
             UPDATE users SET
               name = COALESCE(?, name),
               role = COALESCE(?, role),
-              password_hash = COALESCE(?, password_hash)
+              password_hash = COALESCE(?, password_hash),
+              is_admin = COALESCE(?, is_admin)
             WHERE LOWER(email) = ?
-          `).bind(name || null, role || null, password_hash || null, email).run();
+          `).bind(name || null, role || null, password_hash || null, adminParam, email).run();
         }
         return jsonResponse({ success: true, email }, 200, corsHeaders);
       }
@@ -561,39 +573,60 @@ function jsonResponse(data, status = 200, headers = {}) {
   });
 }
 
+let isSchemaEnsured = false;
+
 async function ensureUsersTable(db) {
   return ensureDatabaseSchema(db);
 }
 
 async function ensureDatabaseSchema(db) {
-  if (!db) return;
+  if (!db || isSchemaEnsured) return;
   try {
-    // 1. Users table & baseline seed
+    // 1. Users table & baseline seed with is_admin migration
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'QC',
         password_hash TEXT,
+        is_admin INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
 
+    try {
+      const uInfo = await db.prepare("PRAGMA table_info(users)").all();
+      const hasAdminCol = (uInfo.results || []).some(c => c.name === 'is_admin');
+      if (!hasAdminCol) {
+        await db.prepare('ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0').run();
+      }
+    } catch (migErr) {
+      console.warn('Users table is_admin migration note:', migErr);
+    }
+
     const baselineUsers = [
-      ['ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'],
-      ['banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', ''],
-      ['bagus@pln.co.id', 'Bagus', 'DEV', ''],
-      ['qc@pln.co.id', 'QC Specialist', 'QC', ''],
-      ['ba@pln.co.id', 'BA Analyst', 'BA', '']
+      ['ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a', 1],
+      ['banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', '', 1],
+      ['bagus@pln.co.id', 'Bagus', 'DEV', '', 0],
+      ['qc@pln.co.id', 'QC Specialist', 'QC', '', 0],
+      ['ba@pln.co.id', 'BA Analyst', 'BA', '', 0]
     ];
 
-    for (const [email, name, role, hash] of baselineUsers) {
+    for (const [email, name, role, hash, isAdmin] of baselineUsers) {
       await db.prepare(`
-        INSERT INTO users (email, name, role, password_hash, created_at)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO users (email, name, role, password_hash, is_admin, created_at)
+        VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(email) DO NOTHING
-      `).bind(email, name, role, hash).run();
+      `).bind(email, name, role, hash, isAdmin).run();
     }
+
+    // Default primary leads to admin if column was previously null/0
+    await db.prepare(`
+      UPDATE users SET is_admin = 1 
+      WHERE LOWER(email) IN ('ardvarez@gmail.com', 'banyurizkika@gmail.com') AND (is_admin IS NULL OR is_admin = 0)
+    `).run();
+
+    isSchemaEnsured = true;
 
     // 2. Sprints table & default seed
     await db.prepare(`
