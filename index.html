@@ -2464,6 +2464,19 @@
           }));
         }
 
+        if (data.sprints && Array.isArray(data.sprints) && data.sprints.length > 0) {
+          state.sprints = data.sprints.map(s => ({
+            id: s.id,
+            projectId: s.project_id || state.project,
+            name: s.name,
+            goal: s.goal || '',
+            startDate: s.start_date || '',
+            endDate: s.end_date || '',
+            status: s.status || 'active'
+          }));
+          localStorage.setItem('jira_sprints', JSON.stringify(state.sprints));
+        }
+
         localStorage.setItem('jira_issues', JSON.stringify(state.issues));
         localStorage.setItem('jira_epics', JSON.stringify(state.epics));
 
@@ -2542,15 +2555,40 @@
       }
     }
 
-    async function syncCommentToD1(issueId, comment) {
+    async function syncCommentToD1(issueId, comment, commentId = null) {
       try {
         await fetch(`${CF_WORKER_URL}/api/comments`, {
           method: 'POST',
           headers: getAuthHeaders(),
-          body: JSON.stringify({ issue_id: issueId, author: 'Ardan', comment })
+          body: JSON.stringify({
+            id: commentId || generateUUID(),
+            issue_id: issueId,
+            author: state.user ? state.user.name : 'Ardan',
+            comment
+          })
         });
       } catch (err) {
         console.warn('Sync comment to D1 failed:', err);
+      }
+    }
+
+    async function syncSprintToD1(sprint) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/sprints`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            id: sprint.id,
+            project_id: sprint.projectId || state.project,
+            name: sprint.name,
+            goal: sprint.goal || '',
+            start_date: sprint.startDate || '',
+            end_date: sprint.endDate || '',
+            status: sprint.status || 'active'
+          })
+        });
+      } catch (err) {
+        console.warn('Sync sprint to D1 failed:', err);
       }
     }
 
@@ -3169,7 +3207,7 @@
 
       const sprints = getProjectSprints();
       const nextNum = sprints.length + 1;
-      const sprintId = `SPRINT-${nextNum}`;
+      const sprintId = generateUUID();
 
       const newSprint = {
         id: sprintId,
@@ -3183,6 +3221,7 @@
 
       if (!Array.isArray(state.sprints)) state.sprints = [];
       state.sprints.push(newSprint);
+      syncSprintToD1(newSprint);
 
       let movedCount = 0;
       if (moveUnfinished) {
@@ -5087,16 +5126,17 @@
       if (!issue) return;
 
       if (!issue.comments) issue.comments = [];
+      const commentId = generateUUID();
       const newCommentObj = {
-        id: `c-${Date.now()}`,
+        id: commentId,
         text: val,
         isDone: false,
-        author: 'Ardan',
+        author: state.user ? state.user.name : 'Ardan',
         createdAt: new Date().toISOString()
       };
       issue.comments.push(newCommentObj);
       saveState();
-      syncCommentToD1(issue.id, JSON.stringify(newCommentObj));
+      syncCommentToD1(issue.id, JSON.stringify(newCommentObj), commentId);
       renderComments(issue.comments);
       input.value = '';
     }
@@ -5271,7 +5311,7 @@
       const reader = new FileReader();
       reader.onload = function(evt) {
         const att = {
-          id: `ATT-${Date.now()}`,
+          id: generateUUID(),
           issue_id: issue.id,
           file_name: fileName,
           file_url: evt.target.result,
@@ -5530,7 +5570,7 @@
       if (!title || !filterValue) return;
 
       state.customSwimlanes.push({
-        id: `custom-${Date.now()}`,
+        id: generateUUID(),
         title,
         color,
         filterType,
@@ -6035,7 +6075,7 @@
         status: ['todo', 'dev', 'test', 'done'].includes((i.status || '').toLowerCase()) ? i.status.toLowerCase() : 'todo',
         sprint: i.sprint || 'SPRINT-1',
         assignee: i.assignee || 'ARDAN',
-        comments: Array.isArray(i.comments) ? i.comments : (typeof i.comments === 'string' && i.comments.trim() ? [{ id: `cmt-${Date.now()}-${idx}`, text: i.comments, isDone: false, author: i.assignee || 'User', createdAt: new Date().toISOString() }] : []),
+        comments: Array.isArray(i.comments) ? i.comments : (typeof i.comments === 'string' && i.comments.trim() ? [{ id: generateUUID(), text: i.comments, isDone: false, author: i.assignee || 'User', createdAt: new Date().toISOString() }] : []),
         attachments: Array.isArray(i.attachments) ? i.attachments : [],
         createdAt: i.createdAt || i.created_at || new Date().toISOString().split('T')[0]
       }));
@@ -6097,7 +6137,7 @@
               txt = txt.replace(/\[NOTE\]|\(Note\)/gi, '').trim();
             }
             return {
-              id: `cmt-xlsx-${Date.now()}-${cIdx}`,
+              id: generateUUID(),
               text: txt,
               isDone,
               author: assignee,
@@ -6195,7 +6235,7 @@
               txt = txt.replace(/\[NOTE\]/gi, '').trim();
             }
             return {
-              id: `cmt-csv-${Date.now()}-${cIdx}`,
+              id: generateUUID(),
               text: txt,
               isDone,
               author: assignee,
@@ -6574,6 +6614,16 @@
       } catch (e) {
         showToast('Gagal menyalin otomatis ke clipboard.', 'warning');
       }
+    }
+
+    function generateUUID() {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
     }
 
     function escapeHtml(str) {

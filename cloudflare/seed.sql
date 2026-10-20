@@ -33,6 +33,10 @@ INSERT OR REPLACE INTO epics (id, project_id, name, color) VALUES
 ('EPIC-PI-2', 'PINSP', 'Tindak Lanjut & Monitoring', 'blue'),
 ('EPIC-PI-3', 'PINSP', 'Master Parameter & Formulir', 'emerald');
 
+-- Seed Sprints
+INSERT OR REPLACE INTO sprints (id, project_id, name, goal, start_date, end_date, status) VALUES
+('SPRINT-1', 'PINSP', 'Sprint 1', 'Tahap 1 - Transmisi', '2026-10-19', '2026-10-23', 'active');
+
 -- Seed 7 Tasks for Ardan
 INSERT OR REPLACE INTO issues (id, project_id, epic_id, type, role, summary, description, priority, status, sprint, assignee) VALUES
 ('PINSP-201', 'PINSP', 'EPIC-PI-1', 'test_case', 'QC', '[QC] Inspeksi Mobile (bgs, ard)', 'Status: Ready To QA, PIC: Bagus, Ardan, Tahap 1: 19/10/2026 - 23/10/2026, Bidang: Transmission', 'highest', 'testing', 'SPRINT-1', 'ardvarez@gmail.com (You)'),

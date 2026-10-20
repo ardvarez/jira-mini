@@ -219,10 +219,15 @@ export default {
       }
       // 4. GET /api/data?project=PINSP
       if (url.pathname === '/api/data' && request.method === 'GET') {
+        await ensureDatabaseSchema(env.DB);
         const project = sanitizeString(url.searchParams.get('project') || 'PINSP');
 
         const epics = await env.DB.prepare(
           'SELECT * FROM epics WHERE project_id = ? ORDER BY created_at ASC'
+        ).bind(project).all();
+
+        const sprints = await env.DB.prepare(
+          'SELECT * FROM sprints WHERE project_id = ? ORDER BY created_at ASC'
         ).bind(project).all();
 
         const issues = await env.DB.prepare(
@@ -245,17 +250,59 @@ export default {
 
         return jsonResponse({
           epics: epics.results,
+          sprints: sprints.results,
           issues: issuesWithDetails
         }, 200, corsHeaders);
       }
 
+      // 4b. GET /api/sprints & POST /api/sprints
+      if (url.pathname === '/api/sprints' && request.method === 'GET') {
+        await ensureDatabaseSchema(env.DB);
+        const project = sanitizeString(url.searchParams.get('project') || 'PINSP');
+        const sprints = await env.DB.prepare(
+          'SELECT * FROM sprints WHERE project_id = ? ORDER BY created_at ASC'
+        ).bind(project).all();
+        return jsonResponse({ sprints: sprints.results }, 200, corsHeaders);
+      }
+
+      if (url.pathname === '/api/sprints' && request.method === 'POST') {
+        await ensureDatabaseSchema(env.DB);
+        const body = await request.json();
+        const { id, project_id, name, goal, start_date, end_date, status } = body;
+        const sprintId = id || crypto.randomUUID();
+
+        await env.DB.prepare(`
+          INSERT INTO sprints (id, project_id, name, goal, start_date, end_date, status, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+          ON CONFLICT(id) DO UPDATE SET
+            name = excluded.name,
+            goal = excluded.goal,
+            start_date = excluded.start_date,
+            end_date = excluded.end_date,
+            status = excluded.status
+        `).bind(
+          sanitizeString(sprintId),
+          sanitizeString(project_id || 'PINSP'),
+          sanitizeString(name),
+          goal ? sanitizeString(goal) : '',
+          start_date || '',
+          end_date || '',
+          sanitizeString(status || 'active')
+        ).run();
+
+        return jsonResponse({ success: true, id: sprintId }, 200, corsHeaders);
+      }
+
       // 5. POST /api/issues (Create / Update Issue)
       if (url.pathname === '/api/issues' && request.method === 'POST') {
+        await ensureDatabaseSchema(env.DB);
         const body = await request.json();
-        const {
+        let {
           id, project_id, epic_id, type, role, summary,
           description, priority, status, sprint, assignee
         } = body;
+
+        id = id || crypto.randomUUID();
 
         await env.DB.prepare(`
           INSERT INTO issues (id, project_id, epic_id, type, role, summary, description, priority, status, sprint, assignee, updated_at)
@@ -315,14 +362,17 @@ export default {
         return jsonResponse({ success: true, deletedAttachment: id }, 200, corsHeaders);
       }
 
-      // 7. POST /api/comments
+      // 7. POST /api/comments (UUID Primary Key)
       if (url.pathname === '/api/comments' && request.method === 'POST') {
-        const { issue_id, author, comment } = await request.json();
+        await ensureDatabaseSchema(env.DB);
+        const { id, issue_id, author, comment } = await request.json();
+        const commentId = id || crypto.randomUUID();
         await env.DB.prepare(`
-          INSERT INTO comments (issue_id, author, comment) VALUES (?, ?, ?)
-        `).bind(sanitizeString(issue_id), sanitizeString(author || 'Ardan'), comment).run();
+          INSERT INTO comments (id, issue_id, author, comment, created_at)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        `).bind(sanitizeString(commentId), sanitizeString(issue_id), sanitizeString(author || 'Ardan'), comment).run();
 
-        return jsonResponse({ success: true }, 200, corsHeaders);
+        return jsonResponse({ success: true, id: commentId }, 200, corsHeaders);
       }
 
       // 8. POST /api/upload (Hardened R2 Upload)
@@ -469,8 +519,13 @@ function jsonResponse(data, status = 200, headers = {}) {
 }
 
 async function ensureUsersTable(db) {
+  return ensureDatabaseSchema(db);
+}
+
+async function ensureDatabaseSchema(db) {
   if (!db) return;
   try {
+    // 1. Users table & baseline seed
     await db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         email TEXT PRIMARY KEY,
@@ -481,7 +536,6 @@ async function ensureUsersTable(db) {
       )
     `).run();
 
-    // Auto-seed existing baseline users into database
     const baselineUsers = [
       ['ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'],
       ['banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', ''],
@@ -497,7 +551,64 @@ async function ensureUsersTable(db) {
         ON CONFLICT(email) DO NOTHING
       `).bind(email, name, role, hash).run();
     }
+
+    // 2. Sprints table & default seed
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS sprints (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        goal TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        status TEXT NOT NULL DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    await db.prepare(`
+      INSERT INTO sprints (id, project_id, name, goal, start_date, end_date, status, created_at)
+      VALUES ('SPRINT-1', 'PINSP', 'Sprint 1', 'Tahap 1 - Transmisi', '2026-10-19', '2026-10-23', 'active', CURRENT_TIMESTAMP)
+      ON CONFLICT(id) DO NOTHING
+    `).run();
+
+    // 3. Comments Table with UUID PK support
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS comments (
+        id TEXT PRIMARY KEY,
+        issue_id TEXT NOT NULL,
+        author TEXT NOT NULL,
+        comment TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+
+    // 4. High-Performance Indexes for Large-Scale Data
+    const indexes = [
+      'CREATE INDEX IF NOT EXISTS idx_issues_project ON issues(project_id)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_proj_sprint ON issues(project_id, sprint)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_proj_status ON issues(project_id, status)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_proj_role ON issues(project_id, role)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_epic ON issues(epic_id)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status)',
+      'CREATE INDEX IF NOT EXISTS idx_issues_updated ON issues(updated_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_comments_issue_created ON comments(issue_id, created_at ASC)',
+      'CREATE INDEX IF NOT EXISTS idx_attachments_issue_created ON attachments(issue_id, created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_epics_project ON epics(project_id)',
+      'CREATE INDEX IF NOT EXISTS idx_sprints_project ON sprints(project_id)',
+      'CREATE INDEX IF NOT EXISTS idx_sprints_status ON sprints(status)',
+      'CREATE INDEX IF NOT EXISTS idx_users_role ON users(role)'
+    ];
+
+    for (const idxSql of indexes) {
+      try {
+        await db.prepare(idxSql).run();
+      } catch (idxErr) {
+        // Continue if index already exists or table column variant
+      }
+    }
   } catch (e) {
-    console.error('Failed to ensure users table:', e);
+    console.error('Database schema ensure failed:', e);
   }
 }
