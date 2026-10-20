@@ -1,0 +1,14 @@
+name = "jira-mini-backend"
+main = "worker.js"
+compatibility_date = "2024-04-01"
+
+# Cloudflare D1 Database Binding
+[[d1_databases]]
+binding = "DB"
+database_name = "jira-db"
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+
+# Cloudflare R2 Bucket Binding (for Evidence Photo Storage)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "jira-evidence"

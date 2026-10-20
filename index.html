@@ -337,24 +337,64 @@
     </div>
   </div>
 
-  <!-- CLOUD SYNC MODAL -->
+  <!-- CLOUD SYNC & BACKEND MODAL -->
   <div id="sync-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-lg w-full max-w-lg shadow-2xl p-6">
       <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
         <div class="flex items-center gap-2">
-          <i data-lucide="cloud" class="w-5 h-5 text-purple-600"></i>
-          <h3 class="font-bold text-base text-gray-900">GitHub Gist Cloud Sync</h3>
+          <i data-lucide="database" class="w-5 h-5 text-orange-600"></i>
+          <h3 class="font-bold text-base text-gray-900">Cloud Sync &amp; Database Controls</h3>
         </div>
         <button onclick="closeSyncModal()" class="text-gray-400 hover:text-gray-600">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
 
-      <p class="text-xs text-gray-600 mb-4">
-        Sync all your BA &amp; QC tasks to a <strong>Private GitHub Gist</strong>. This allows automatic data sync across office &amp; home laptops on GitHub Pages for free.
-      </p>
+      <!-- TABS -->
+      <div class="flex border-b border-gray-200 mb-4 text-xs font-bold">
+        <button onclick="switchSyncTab('cf')" id="tab-btn-cf" class="py-2 px-4 border-b-2 border-orange-500 text-orange-600">
+          ⚡ Cloudflare D1 + R2
+        </button>
+        <button onclick="switchSyncTab('gist')" id="tab-btn-gist" class="py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-800">
+          🐙 GitHub Gist Sync
+        </button>
+      </div>
 
-      <div class="space-y-3 text-xs">
+      <!-- TAB 1: CLOUDFLARE D1 + R2 -->
+      <div id="tab-content-cf" class="space-y-3 text-xs">
+        <p class="text-gray-600">
+          Hubungkan ke <strong>Cloudflare Worker API</strong> yang terhubung ke <strong>D1 (SQLite)</strong> dan <strong>R2 (Storage Foto Evidence)</strong>.
+        </p>
+
+        <div>
+          <label class="block font-bold text-gray-700 uppercase mb-1">Cloudflare Worker API URL</label>
+          <input type="url" id="cf-worker-url" placeholder="https://jira-mini-backend.yourname.workers.dev" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-orange-500 font-mono" />
+          <p class="text-[10px] text-gray-400 mt-1">Lihat panduan deploy di folder <code>/cloudflare/deploy-guide.md</code>.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-gray-700 uppercase mb-1">API Key / Secret (Optional)</label>
+          <input type="password" id="cf-api-key" placeholder="Optional secret key" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-orange-500 font-mono" />
+        </div>
+
+        <div id="cf-feedback" class="p-2 rounded text-xs hidden"></div>
+
+        <div class="pt-2 flex justify-between items-center">
+          <button onclick="testCloudflareConnection()" class="px-3 py-1.5 text-xs font-semibold text-gray-700 border border-gray-300 rounded hover:bg-gray-100 flex items-center gap-1">
+            <i data-lucide="radio" class="w-3.5 h-3.5"></i> Test Connection
+          </button>
+          <button onclick="saveCloudflareConfig()" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded flex items-center gap-1 shadow-sm">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i> Save Cloudflare Config
+          </button>
+        </div>
+      </div>
+
+      <!-- TAB 2: GITHUB GIST -->
+      <div id="tab-content-gist" class="space-y-3 text-xs hidden">
+        <p class="text-gray-600">
+          Simpan data tasks ke <strong>Private GitHub Gist</strong> pribadi untuk sinkronisasi antar laptop.
+        </p>
+
         <div>
           <label class="block font-bold text-gray-700 uppercase mb-1">GitHub Personal Access Token (PAT)</label>
           <input type="password" id="sync-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-purple-500 font-mono" />
@@ -367,16 +407,13 @@
         </div>
 
         <div id="sync-feedback" class="p-2 rounded text-xs hidden"></div>
-      </div>
 
-      <div class="flex justify-between items-center mt-6 pt-3 border-t border-gray-200">
-        <button onclick="pullFromGist()" class="px-3 py-1.5 text-xs font-semibold text-gray-700 border border-gray-300 rounded hover:bg-gray-100 flex items-center gap-1">
-          <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Pull from Cloud
-        </button>
-        <div class="flex gap-2">
-          <button onclick="closeSyncModal()" class="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded">Close</button>
+        <div class="flex justify-between items-center pt-2">
+          <button onclick="pullFromGist()" class="px-3 py-1.5 text-xs font-semibold text-gray-700 border border-gray-300 rounded hover:bg-gray-100 flex items-center gap-1">
+            <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Pull from Gist
+          </button>
           <button onclick="pushToGist()" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-purple-700 hover:bg-purple-800 rounded flex items-center gap-1 shadow-sm">
-            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Save &amp; Push Now
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Save &amp; Push Gist
           </button>
         </div>
       </div>
@@ -566,6 +603,35 @@
             ></textarea>
           </div>
 
+          <!-- EVIDENCE & ATTACHMENTS (CLOUDFLARE R2 & LOCAL) -->
+          <div class="pt-4 border-t border-gray-200">
+            <div class="flex items-center justify-between mb-2">
+              <h4 class="text-xs font-bold text-gray-700 uppercase flex items-center gap-1.5">
+                <i data-lucide="paperclip" class="w-3.5 h-3.5 text-blue-600"></i> Evidence &amp; Screenshots
+              </h4>
+              <span class="text-[10px] text-gray-400">💡 Press <b class="text-gray-700 font-bold">Ctrl + V</b> to paste screenshot directly</span>
+            </div>
+
+            <!-- DROP ZONE -->
+            <div 
+              id="evidence-drop-zone"
+              ondragover="event.preventDefault(); this.classList.add('border-blue-500', 'bg-blue-50')"
+              ondragleave="this.classList.remove('border-blue-500', 'bg-blue-50')"
+              ondrop="handleFileDrop(event)"
+              onclick="document.getElementById('evidence-file-input').click()"
+              class="border-2 border-dashed border-gray-300 hover:border-blue-500 rounded-lg p-3 text-center cursor-pointer transition bg-gray-50/50"
+            >
+              <input type="file" id="evidence-file-input" accept="image/*" multiple onchange="handleFileInput(event)" class="hidden" />
+              <div class="flex items-center justify-center gap-2 text-xs text-gray-500">
+                <i data-lucide="image-plus" class="w-4 h-4 text-blue-600"></i>
+                <span>Drop inspection evidence here, browse, or paste (<code class="font-bold text-blue-700">Ctrl+V</code>)</span>
+              </div>
+            </div>
+
+            <!-- EVIDENCE GALLERY -->
+            <div id="detail-attachments" class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3"></div>
+          </div>
+
           <div class="pt-4 border-t border-gray-200">
             <h4 class="text-xs font-bold text-gray-600 uppercase mb-2">Comments &amp; QC Logs</h4>
             <div class="flex gap-2 mb-3">
@@ -639,6 +705,19 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX MODAL FOR EVIDENCE -->
+  <div id="lightbox-modal" onclick="closeLightbox()" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[70] hidden flex items-center justify-center p-4 cursor-pointer">
+    <div class="relative max-w-5xl max-h-[90vh] flex flex-col items-center" onclick="event.stopPropagation()">
+      <div class="w-full flex justify-between items-center text-white mb-2 px-2">
+        <span id="lightbox-caption" class="text-xs font-semibold">Evidence Preview</span>
+        <button onclick="closeLightbox()" class="p-1 hover:bg-white/20 rounded">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <img id="lightbox-img" class="max-w-full max-h-[80vh] rounded-md shadow-2xl object-contain border border-white/20 bg-black" src="" />
     </div>
   </div>
 
@@ -1433,6 +1512,7 @@
       document.getElementById('detail-assignee').value = issue.assignee;
 
       renderComments(issue.comments || []);
+      renderAttachments(issue.attachments || []);
       document.getElementById('detail-modal').classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
     }
@@ -1499,8 +1579,231 @@
       }
     }
 
-    // GIST CLOUD SYNC
+    // ================= EVIDENCE & ATTACHMENT HANDLERS =================
+    function renderAttachments(attachments) {
+      const container = document.getElementById('detail-attachments');
+      if (!attachments || !attachments.length) {
+        container.innerHTML = '<p class="text-[11px] text-gray-400 italic col-span-3">No screenshots attached yet.</p>';
+        return;
+      }
+
+      container.innerHTML = attachments.map((att, idx) => `
+        <div class="relative group rounded border border-gray-200 overflow-hidden bg-gray-50 aspect-video flex items-center justify-center cursor-pointer shadow-xs" onclick="openLightbox('${att.file_url}', '${escapeHtml(att.file_name)}')">
+          <img src="${att.file_url}" alt="${escapeHtml(att.file_name)}" class="w-full h-full object-cover group-hover:scale-105 transition" />
+          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+            <span class="text-white text-xs font-semibold px-2 py-1 rounded bg-black/50">Zoom</span>
+            <button onclick="event.stopPropagation(); deleteAttachment(${idx})" class="p-1 rounded bg-red-600 text-white hover:bg-red-700">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <span class="absolute bottom-1 left-1 right-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded truncate font-mono">
+            ${escapeHtml(att.file_name)}
+          </span>
+        </div>
+      `).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function handleFileDrop(e) {
+      e.preventDefault();
+      document.getElementById('evidence-drop-zone').classList.remove('border-blue-500', 'bg-blue-50');
+      const files = e.dataTransfer.files;
+      if (files && files.length) {
+        Array.from(files).forEach(f => {
+          if (f.type.startsWith('image/')) processEvidenceFile(f, f.name);
+        });
+      }
+    }
+
+    function handleFileInput(e) {
+      const files = e.target.files;
+      if (files && files.length) {
+        Array.from(files).forEach(f => {
+          if (f.type.startsWith('image/')) processEvidenceFile(f, f.name);
+        });
+      }
+      e.target.value = '';
+    }
+
+    // CLIPBOARD PASTE LISTENER (CTRL + V)
+    window.addEventListener('paste', (e) => {
+      if (!state.activeIssueId) return;
+      // Do not intercept if pasting into text input/textarea
+      const tag = document.activeElement.tagName.toLowerCase();
+      if (tag === 'textarea' || (tag === 'input' && document.activeElement.type === 'text')) return;
+
+      const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+      for (const item of items) {
+        if (item.type.indexOf('image') === 0) {
+          const blob = item.getAsFile();
+          const fileName = `screenshot-${new Date().toISOString().replace(/[:.]/g, '-')}.png`;
+          processEvidenceFile(blob, fileName);
+          break;
+        }
+      }
+    });
+
+    async function processEvidenceFile(file, fileName) {
+      if (!state.activeIssueId) return;
+      const issue = state.issues.find(i => i.id === state.activeIssueId);
+      if (!issue) return;
+
+      if (!issue.attachments) issue.attachments = [];
+
+      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
+
+      // IF CLOUDFLARE WORKER CONFIGURED -> UPLOAD TO CLOUDFLARE R2
+      if (cf.workerUrl) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file, fileName);
+          formData.append('issue_id', issue.id);
+
+          const headers = {};
+          if (cf.apiKey) headers['X-API-KEY'] = cf.apiKey;
+
+          const res = await fetch(`${cf.workerUrl.replace(/\/$/, '')}/api/upload`, {
+            method: 'POST',
+            headers: headers,
+            body: formData
+          });
+
+          if (!res.ok) throw new Error(`Cloudflare Upload failed: ${res.statusText}`);
+          const data = await res.json();
+          if (data.attachment) {
+            issue.attachments.unshift(data.attachment);
+            saveState();
+            renderAttachments(issue.attachments);
+            return;
+          }
+        } catch (err) {
+          console.warn('Cloudflare upload failed, fallback to local storage:', err);
+        }
+      }
+
+      // FALLBACK TO CLIENT-SIDE COMPRESSION & DATA URL
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        compressImage(evt.target.result, 1280, 0.8, (compressedDataUrl) => {
+          const att = {
+            id: `ATT-${Date.now()}`,
+            issue_id: issue.id,
+            file_name: fileName,
+            file_url: compressedDataUrl,
+            file_size: Math.round(compressedDataUrl.length * 0.75),
+            content_type: 'image/webp',
+            created_at: new Date().toISOString()
+          };
+          issue.attachments.unshift(att);
+          saveState();
+          renderAttachments(issue.attachments);
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function compressImage(base64Str, maxWidth, quality, callback) {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        callback(canvas.toDataURL('image/webp', quality));
+      };
+    }
+
+    function deleteAttachment(index) {
+      if (!state.activeIssueId) return;
+      const issue = state.issues.find(i => i.id === state.activeIssueId);
+      if (!issue || !issue.attachments) return;
+
+      if (confirm('Delete this screenshot evidence?')) {
+        issue.attachments.splice(index, 1);
+        saveState();
+        renderAttachments(issue.attachments);
+      }
+    }
+
+    // LIGHTBOX VIEWER
+    function openLightbox(url, caption) {
+      document.getElementById('lightbox-img').src = url;
+      document.getElementById('lightbox-caption').textContent = caption || 'Evidence Screenshot';
+      document.getElementById('lightbox-modal').classList.remove('hidden');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightbox-modal').classList.add('hidden');
+      document.getElementById('lightbox-img').src = '';
+    }
+
+    // ================= CLOUDFLARE CONTROLS =================
+    function switchSyncTab(tab) {
+      if (tab === 'cf') {
+        document.getElementById('tab-btn-cf').className = 'py-2 px-4 border-b-2 border-orange-500 text-orange-600 font-bold';
+        document.getElementById('tab-btn-gist').className = 'py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-800 font-bold';
+        document.getElementById('tab-content-cf').classList.remove('hidden');
+        document.getElementById('tab-content-gist').classList.add('hidden');
+      } else {
+        document.getElementById('tab-btn-gist').className = 'py-2 px-4 border-b-2 border-purple-600 text-purple-700 font-bold';
+        document.getElementById('tab-btn-cf').className = 'py-2 px-4 border-b-2 border-transparent text-gray-500 hover:text-gray-800 font-bold';
+        document.getElementById('tab-content-gist').classList.remove('hidden');
+        document.getElementById('tab-content-cf').classList.add('hidden');
+      }
+    }
+
+    function saveCloudflareConfig() {
+      const url = document.getElementById('cf-worker-url').value.trim();
+      const key = document.getElementById('cf-api-key').value.trim();
+      const fb = document.getElementById('cf-feedback');
+
+      localStorage.setItem('jira_cf_config', JSON.stringify({ workerUrl: url, apiKey: key }));
+      fb.textContent = 'Cloudflare config saved! Evidence uploads will route to Cloudflare R2.';
+      fb.className = 'p-2 rounded text-xs bg-emerald-100 text-emerald-800 block';
+    }
+
+    async function testCloudflareConnection() {
+      const url = document.getElementById('cf-worker-url').value.trim();
+      const key = document.getElementById('cf-api-key').value.trim();
+      const fb = document.getElementById('cf-feedback');
+
+      if (!url) {
+        fb.textContent = 'Please enter a Cloudflare Worker URL first.';
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+        return;
+      }
+
+      fb.textContent = 'Testing connection to Cloudflare Worker...';
+      fb.className = 'p-2 rounded text-xs bg-blue-100 text-blue-700 block';
+
+      try {
+        const headers = {};
+        if (key) headers['X-API-KEY'] = key;
+        const res = await fetch(`${url.replace(/\/$/, '')}/api/data?project=PINSP`, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        const data = await res.json();
+        fb.textContent = `Connected successfully! Cloudflare D1 & R2 Backend online (${data.issues ? data.issues.length : 0} items retrieved).`;
+        fb.className = 'p-2 rounded text-xs bg-emerald-100 text-emerald-800 block';
+      } catch (err) {
+        fb.textContent = `Connection failed: ${err.message}. Check CORS or deploy status.`;
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+      }
+    }
     function openSyncModal() {
+      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
+      document.getElementById('cf-worker-url').value = cf.workerUrl || '';
+      document.getElementById('cf-api-key').value = cf.apiKey || '';
+      document.getElementById('cf-feedback').classList.add('hidden');
+
       document.getElementById('sync-token').value = state.sync.token || '';
       document.getElementById('sync-gist-id').value = state.sync.gistId || '';
       document.getElementById('sync-feedback').classList.add('hidden');
