@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jira Pro - BA & QC Suite</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f4f5f7;
+      color: #172b4d;
+    }
+    .card-shadow {
+      box-shadow: 0 1px 2px rgba(9, 30, 66, 0.25);
+    }
+    .card-shadow:hover {
+      box-shadow: 0 4px 8px -2px rgba(9, 30, 66, 0.25), 0 0 1px rgba(9, 30, 66, 0.31);
+    }
+    .dragging {
+      opacity: 0.35;
+      transform: scale(0.97);
+    }
+    .drag-over {
+      background-color: #e9f2ff !important;
+      border: 2px dashed #0052cc !important;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c1c7d0; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #a5b2c6; }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden text-[#172b4d]">
+
+  <!-- ================= AUTH SCREEN ================= -->
+  <div id="auth-screen" class="fixed inset-0 bg-[#0052cc] z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 text-center">
+      <div class="w-12 h-12 bg-[#0052cc] text-white rounded-lg flex items-center justify-center mx-auto mb-4 font-bold text-xl shadow-md">
+        <i data-lucide="layers" class="w-7 h-7"></i>
+      </div>
+      <h2 class="text-xl font-bold text-gray-900 mb-1">Log in to Jira Workspace</h2>
+      <p class="text-xs text-gray-500 mb-6">BA &amp; QC Task &amp; Sprint Management</p>
+
+      <form id="login-form" onsubmit="handleLogin(event)" class="text-left space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Email Address</label>
+          <input 
+            type="email" 
+            id="login-email" 
+            required 
+            value="ardvarez@gmail.com"
+            placeholder="name@company.com"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff] focus:ring-2 focus:ring-[#deebff]"
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Password</label>
+          <input 
+            type="password" 
+            id="login-password" 
+            required 
+            value="ardvarez123"
+            placeholder="Enter password"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff] focus:ring-2 focus:ring-[#deebff]"
+          />
+          <p class="text-[11px] text-gray-500 mt-1">Default password: <code class="font-bold text-blue-700">ardvarez123</code></p>
+        </div>
+
+        <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 p-2 rounded font-medium"></div>
+
+        <button type="submit" class="w-full bg-[#0052cc] hover:bg-[#0747a6] text-white font-semibold py-2 rounded text-sm transition shadow-sm">
+          Log in
+        </button>
+      </form>
+
+      <div class="mt-6 pt-4 border-t border-gray-200 text-[11px] text-gray-400">
+        Jira Mini v2.0 • Hosted on GitHub Pages
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN APP ================= -->
+  <div id="main-app" class="h-full flex flex-col hidden">
+    <!-- TOP APP BAR -->
+    <header class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 z-30 shrink-0">
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2 cursor-pointer">
+          <div class="w-7 h-7 rounded bg-[#0052cc] flex items-center justify-center text-white font-bold text-sm">
+            <i data-lucide="layers" class="w-4 h-4"></i>
+          </div>
+          <span class="font-bold text-lg tracking-tight text-[#172b4d]">Jira Workspace</span>
+          <span class="text-[11px] font-bold bg-blue-100 text-[#0052cc] px-2 py-0.5 rounded-full uppercase ml-1">BA &amp; QC Suite</span>
+        </div>
+
+        <!-- PROJECT SWITCHER -->
+        <div class="relative">
+          <select id="project-selector" onchange="changeProject(this.value)" class="bg-gray-100 hover:bg-gray-200 text-xs font-semibold px-3 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
+            <option value="CORE">📁 Project 1: Core Platform</option>
+            <option value="PAY">📁 Project 2: Payment Gateway</option>
+            <option value="MOBI">📁 Project 3: Mobile Apps</option>
+          </select>
+        </div>
+
+        <nav class="hidden md:flex items-center gap-1 text-sm font-medium">
+          <button onclick="switchView('scrum')" id="nav-scrum" class="px-3 py-1.5 rounded flex items-center gap-1.5 font-semibold text-[#0052cc] bg-blue-50">
+            <i data-lucide="gauge" class="w-4 h-4"></i> Active Sprint
+          </button>
+          <button onclick="switchView('backlog')" id="nav-backlog" class="px-3 py-1.5 rounded flex items-center gap-1.5 text-gray-600 hover:bg-gray-100">
+            <i data-lucide="list-todo" class="w-4 h-4"></i> Backlog &amp; Epics
+          </button>
+          <button onclick="switchView('kanban')" id="nav-kanban" class="px-3 py-1.5 rounded flex items-center gap-1.5 text-gray-600 hover:bg-gray-100">
+            <i data-lucide="columns-3" class="w-4 h-4"></i> All Kanban
+          </button>
+          <button onclick="openCreateModal()" class="ml-2 bg-[#0052cc] hover:bg-[#0747a6] text-white px-3.5 py-1.5 rounded font-medium text-sm flex items-center gap-1.5 shadow-sm transition">
+            <i data-lucide="plus" class="w-4 h-4"></i> Create Issue
+          </button>
+        </nav>
+      </div>
+
+      <!-- RIGHT BAR ACTIONS -->
+      <div class="flex items-center gap-3">
+        <div class="relative hidden sm:block">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-2.5 text-gray-400"></i>
+          <input 
+            id="global-search"
+            type="text" 
+            placeholder="Search task, epic, key..." 
+            oninput="handleSearch(this.value)"
+            class="pl-9 pr-3 py-1.5 w-52 border border-gray-300 rounded-md text-xs focus:outline-none focus:border-[#4c9aff] focus:ring-2 focus:ring-[#deebff]"
+          />
+        </div>
+
+        <!-- CLOUD GIST SYNC BUTTON -->
+        <button onclick="openSyncModal()" title="Sync with GitHub Gist" class="px-2.5 py-1 text-xs font-semibold border border-purple-300 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded flex items-center gap-1">
+          <i data-lucide="cloud" class="w-3.5 h-3.5"></i> <span id="sync-status-label">Cloud Sync</span>
+        </button>
+
+        <!-- USER PROFILE & LOGOUT -->
+        <div class="relative group">
+          <div class="flex items-center gap-2 pl-2 border-l border-gray-200 cursor-pointer">
+            <div class="w-8 h-8 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center shadow-sm">
+              AV
+            </div>
+            <div class="hidden xl:block text-left text-xs">
+              <p class="font-bold text-gray-800 leading-tight">ardvarez@gmail.com</p>
+              <p class="text-[10px] text-gray-500">BA &amp; QC Lead</p>
+            </div>
+            <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400"></i>
+          </div>
+
+          <!-- DROPDOWN -->
+          <div class="absolute right-0 top-full mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-xl py-1 hidden group-hover:block z-40">
+            <div class="px-3 py-2 border-b border-gray-100 text-xs">
+              <p class="font-bold text-gray-800 truncate">ardvarez@gmail.com</p>
+              <p class="text-gray-500 text-[10px]">Active Session</p>
+            </div>
+            <button onclick="openSyncModal()" class="w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-100 flex items-center gap-2">
+              <i data-lucide="settings" class="w-3.5 h-3.5"></i> Cloud Sync Config
+            </button>
+            <button onclick="handleLogout()" class="w-full text-left px-3 py-2 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2">
+              <i data-lucide="log-out" class="w-3.5 h-3.5"></i> Log out
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+      <!-- LEFT SIDEBAR -->
+      <aside class="w-64 bg-[#f4f5f7] border-r border-gray-200 p-4 flex flex-col justify-between shrink-0 hidden lg:flex">
+        <div class="space-y-6">
+          <!-- PROJECT INFO -->
+          <div class="flex items-center gap-3 px-1">
+            <div id="project-icon" class="w-10 h-10 rounded bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">
+              CP
+            </div>
+            <div class="overflow-hidden">
+              <h2 id="project-name-display" class="font-bold text-sm text-gray-900 truncate">Core Platform</h2>
+              <p class="text-xs text-gray-500">Scrum Software Project</p>
+            </div>
+          </div>
+
+          <!-- NAVIGATION -->
+          <div class="space-y-1 text-sm font-medium">
+            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">PLANNING</p>
+            <button onclick="switchView('scrum')" class="w-full flex items-center gap-3 px-3 py-2 rounded text-gray-700 hover:bg-gray-200" id="side-scrum">
+              <i data-lucide="kanban" class="w-4 h-4 text-blue-600"></i> Active Sprint
+            </button>
+            <button onclick="switchView('backlog')" class="w-full flex items-center gap-3 px-3 py-2 rounded text-gray-700 hover:bg-gray-200" id="side-backlog">
+              <i data-lucide="layers" class="w-4 h-4 text-purple-600"></i> Backlog &amp; Epics
+            </button>
+            <button onclick="switchView('kanban')" class="w-full flex items-center gap-3 px-3 py-2 rounded text-gray-700 hover:bg-gray-200" id="side-kanban">
+              <i data-lucide="trello" class="w-4 h-4 text-emerald-600"></i> Full Kanban
+            </button>
+          </div>
+
+          <!-- EPICS QUICK SUMMARY -->
+          <div class="border-t border-gray-200 pt-4">
+            <div class="flex items-center justify-between mb-2 px-1">
+              <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">PROJECT EPICS</p>
+              <button onclick="openCreateEpicModal()" class="text-xs text-[#0052cc] hover:underline font-semibold">+ Add</button>
+            </div>
+            <div id="side-epic-list" class="space-y-1.5 max-h-44 overflow-y-auto pr-1"></div>
+          </div>
+
+          <!-- BA / QC ROLE QUICK FILTER -->
+          <div class="border-t border-gray-200 pt-4">
+            <p class="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-1 mb-2">ROLE FOCUS</p>
+            <div class="space-y-1 text-xs">
+              <button onclick="setRoleFilter('ALL')" id="role-filter-all" class="w-full text-left px-2 py-1.5 rounded font-semibold bg-gray-200 text-gray-800">
+                👥 All Team Tasks
+              </button>
+              <button onclick="setRoleFilter('BA')" id="role-filter-ba" class="w-full text-left px-2 py-1.5 rounded text-gray-600 hover:bg-gray-200 flex items-center justify-between">
+                <span>📋 BA / Requirements</span>
+                <span id="count-ba-badge" class="bg-blue-100 text-blue-700 px-1.5 py-0.2 rounded text-[10px] font-bold">0</span>
+              </button>
+              <button onclick="setRoleFilter('QC')" id="role-filter-qc" class="w-full text-left px-2 py-1.5 rounded text-gray-600 hover:bg-gray-200 flex items-center justify-between">
+                <span>🧪 QC / Test &amp; Bugs</span>
+                <span id="count-qc-badge" class="bg-rose-100 text-rose-700 px-1.5 py-0.2 rounded text-[10px] font-bold">0</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="text-[11px] text-gray-400 border-t border-gray-200 pt-3">
+          User: <span class="text-gray-700 font-medium">ardvarez@gmail.com</span>
+        </div>
+      </aside>
+
+      <!-- MAIN VIEW AREA -->
+      <main class="flex-1 flex flex-col overflow-hidden bg-white">
+        <!-- BOARD CONTROLS / TOOLBAR -->
+        <div class="p-5 pb-3 border-b border-gray-200 shrink-0 bg-white">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div class="text-xs text-gray-500 mb-0.5 flex items-center gap-1.5">
+                <span id="crumb-project">Core Platform</span> / <span id="crumb-view" class="text-gray-800 font-semibold">Active Sprint</span>
+              </div>
+              <div class="flex items-center gap-3">
+                <h1 id="view-title" class="text-2xl font-bold text-[#172b4d]">Sprint 1 (Active)</h1>
+                <span class="text-xs bg-gray-100 border border-gray-300 text-gray-600 font-medium px-2 py-0.5 rounded">
+                  📅 Oct 15 - Oct 29
+                </span>
+              </div>
+            </div>
+
+            <!-- SWIMLANE SELECTOR & ACTIONS -->
+            <div class="flex items-center gap-3">
+              <div class="flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded border border-gray-200 text-xs">
+                <span class="font-bold text-gray-500 uppercase">Swimlanes:</span>
+                <select id="swimlane-select" onchange="changeSwimlane(this.value)" class="bg-transparent font-semibold text-blue-700 focus:outline-none cursor-pointer">
+                  <option value="epic" selected>🟣 Group by Epic</option>
+                  <option value="role">👥 Group by Role (BA / QC / Dev)</option>
+                  <option value="priority">🔥 Group by Priority</option>
+                  <option value="none">Flat (No Swimlanes)</option>
+                </select>
+              </div>
+
+              <button onclick="exportJSON()" class="px-2.5 py-1 text-xs font-semibold border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i> Export
+              </button>
+              <label class="px-2.5 py-1 text-xs font-semibold border border-gray-300 rounded hover:bg-gray-50 text-gray-700 flex items-center gap-1 cursor-pointer">
+                <i data-lucide="upload" class="w-3.5 h-3.5"></i> Import
+                <input type="file" accept=".json" onchange="importJSON(event)" class="hidden" />
+              </label>
+            </div>
+          </div>
+
+          <!-- QUICK FILTER PILLS & EPIC SELECTOR -->
+          <div class="flex items-center gap-2 mt-4 text-xs flex-wrap">
+            <span class="text-gray-400 font-bold uppercase text-[10px] mr-1">Filter Epic:</span>
+            <div id="epic-pill-container" class="flex items-center gap-1.5 flex-wrap"></div>
+
+            <div class="h-4 w-px bg-gray-300 mx-1"></div>
+
+            <button id="pill-all" onclick="setTypeFilter('ALL')" class="px-2.5 py-1 rounded-full font-semibold bg-[#ebecf0] text-[#0052cc]">
+              All Items
+            </button>
+            <button id="pill-story" onclick="setTypeFilter('story')" class="px-2.5 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium">
+              📗 Stories
+            </button>
+            <button id="pill-test" onclick="setTypeFilter('test_case')" class="px-2.5 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium">
+              🧪 Test Cases
+            </button>
+            <button id="pill-bug" onclick="setTypeFilter('bug')" class="px-2.5 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium">
+              📕 Bugs
+            </button>
+
+            <span class="ml-auto text-gray-400" id="issue-stats-badge"></span>
+          </div>
+        </div>
+
+        <!-- VIEW 1: ACTIVE SPRINT / KANBAN BOARD -->
+        <div id="board-view-container" class="flex-1 overflow-auto p-5 bg-[#f4f5f7]">
+          <div id="swimlane-rows" class="space-y-6"></div>
+        </div>
+
+        <!-- VIEW 2: BACKLOG & EPICS PLANNING -->
+        <div id="backlog-view-container" class="flex-1 overflow-auto p-6 bg-[#f4f5f7] hidden">
+          <div class="max-w-6xl mx-auto space-y-6">
+            <!-- ACTIVE SPRINT SECTION -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div class="px-4 py-3 bg-blue-50/70 border-b border-blue-100 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="play-circle" class="w-4 h-4 text-blue-600"></i>
+                  <h3 class="font-bold text-sm text-gray-900">Sprint 1 (Active)</h3>
+                  <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold" id="active-sprint-count">0 issues</span>
+                </div>
+                <button onclick="switchView('scrum')" class="text-xs font-bold text-blue-700 hover:underline">
+                  View on Board →
+                </button>
+              </div>
+              <div id="backlog-sprint-list" class="divide-y divide-gray-100 min-h-[50px] p-2 space-y-1"></div>
+            </div>
+
+            <!-- PRODUCT BACKLOG SECTION -->
+            <div class="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <div class="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="layers" class="w-4 h-4 text-gray-600"></i>
+                  <h3 class="font-bold text-sm text-gray-900">Product Backlog (Ready for Next Sprint)</h3>
+                  <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded font-bold" id="backlog-count">0 issues</span>
+                </div>
+                <button onclick="openCreateModal('todo', 'BACKLOG')" class="bg-white border border-gray-300 text-xs font-semibold px-2.5 py-1 rounded hover:bg-gray-100 flex items-center gap-1 text-gray-700">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add to Backlog
+                </button>
+              </div>
+              <div id="backlog-product-list" class="divide-y divide-gray-100 min-h-[80px] p-2 space-y-1"></div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- CLOUD SYNC MODAL -->
+  <div id="sync-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg w-full max-w-lg shadow-2xl p-6">
+      <div class="flex items-center justify-between pb-3 border-b border-gray-200 mb-4">
+        <div class="flex items-center gap-2">
+          <i data-lucide="cloud" class="w-5 h-5 text-purple-600"></i>
+          <h3 class="font-bold text-base text-gray-900">GitHub Gist Cloud Sync</h3>
+        </div>
+        <button onclick="closeSyncModal()" class="text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-gray-600 mb-4">
+        Sync all your BA &amp; QC tasks to a <strong>Private GitHub Gist</strong>. This allows automatic data sync across office &amp; home laptops on GitHub Pages for free.
+      </p>
+
+      <div class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-gray-700 uppercase mb-1">GitHub Personal Access Token (PAT)</label>
+          <input type="password" id="sync-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-purple-500 font-mono" />
+          <p class="text-[10px] text-gray-400 mt-1">Needs only the <code class="text-purple-700 font-semibold">gist</code> scope enabled.</p>
+        </div>
+
+        <div>
+          <label class="block font-bold text-gray-700 uppercase mb-1">Gist ID (Auto-created if empty)</label>
+          <input type="text" id="sync-gist-id" placeholder="Leave blank to create a new private Gist automatically" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none focus:border-purple-500 font-mono" />
+        </div>
+
+        <div id="sync-feedback" class="p-2 rounded text-xs hidden"></div>
+      </div>
+
+      <div class="flex justify-between items-center mt-6 pt-3 border-t border-gray-200">
+        <button onclick="pullFromGist()" class="px-3 py-1.5 text-xs font-semibold text-gray-700 border border-gray-300 rounded hover:bg-gray-100 flex items-center gap-1">
+          <i data-lucide="download-cloud" class="w-3.5 h-3.5"></i> Pull from Cloud
+        </button>
+        <div class="flex gap-2">
+          <button onclick="closeSyncModal()" class="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded">Close</button>
+          <button onclick="pushToGist()" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-purple-700 hover:bg-purple-800 rounded flex items-center gap-1 shadow-sm">
+            <i data-lucide="upload-cloud" class="w-3.5 h-3.5"></i> Save &amp; Push Now
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE ISSUE MODAL -->
+  <div id="create-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="font-bold text-lg text-[#172b4d]">Create Work Item</h3>
+        <button onclick="closeCreateModal()" class="text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="create-form" onsubmit="handleCreateIssue(event)" class="p-6 overflow-y-auto space-y-4 text-sm">
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Issue Type</label>
+            <select id="issue-type" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff]">
+              <option value="story">📗 User Story (BA)</option>
+              <option value="task" selected>📘 Task / Requirement (BA)</option>
+              <option value="test_case">🧪 Test Case (QC)</option>
+              <option value="bug">📕 Bug / Defect (QC)</option>
+              <option value="epic">🟣 Epic</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Parent Epic</label>
+            <select id="issue-epic" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff]">
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Summary / Title <span class="text-red-500">*</span></label>
+          <input 
+            type="text" 
+            id="issue-summary" 
+            required 
+            placeholder="e.g., [BA] Write BRD for Checkout or [QC] Regression test payment gateway"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff]" 
+          />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Description / Acceptance Criteria / Steps</label>
+          <textarea 
+            id="issue-description" 
+            rows="3" 
+            placeholder="For BA: Acceptance Criteria, Business Logic&#10;For QC: Preconditions, Test Steps, Expected Result, Actual Result"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff]"
+          ></textarea>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Role</label>
+            <select id="issue-role" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none">
+              <option value="BA">📋 BA (Analyst)</option>
+              <option value="QC">🧪 QC (Tester)</option>
+              <option value="DEV">💻 Dev / Tech</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Priority</label>
+            <select id="issue-priority" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none">
+              <option value="highest">🔴 Highest (Blocker)</option>
+              <option value="high">🟠 High</option>
+              <option value="medium" selected>🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Sprint</label>
+            <select id="issue-sprint" class="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none">
+              <option value="SPRINT-1" selected>Sprint 1 (Active)</option>
+              <option value="BACKLOG">Product Backlog</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Initial Status</label>
+            <select id="issue-status" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none">
+              <option value="todo" selected>TO DO / ANALYSIS</option>
+              <option value="in_progress">IN PROGRESS</option>
+              <option value="testing">QC / TESTING</option>
+              <option value="done">DONE</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Assignee</label>
+            <select id="issue-assignee" class="w-full border border-gray-300 rounded px-3 py-2 text-xs focus:outline-none">
+              <option value="ardvarez@gmail.com (You)">ardvarez@gmail.com (You)</option>
+              <option value="Rian (Lead BA)">Rian (Lead BA)</option>
+              <option value="Dewi (Sr. QC)">Dewi (Sr. QC)</option>
+              <option value="Budi (Dev)">Budi (Dev)</option>
+              <option value="Unassigned">Unassigned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pt-4 border-t border-gray-200 flex justify-end gap-2">
+          <button type="button" onclick="closeCreateModal()" class="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 text-xs font-semibold text-white bg-[#0052cc] hover:bg-[#0747a6] rounded shadow-sm">
+            Create Item
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CREATE EPIC MODAL -->
+  <div id="create-epic-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg w-full max-w-md shadow-2xl p-6">
+      <h3 class="font-bold text-lg text-gray-900 mb-3">Create New Epic</h3>
+      <div class="space-y-3 text-sm">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Epic Name</label>
+          <input type="text" id="new-epic-name" placeholder="e.g. User Authentication & KYC" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Epic Color</label>
+          <select id="new-epic-color" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none">
+            <option value="purple">🟣 Purple</option>
+            <option value="blue">🔵 Blue</option>
+            <option value="emerald">🟢 Emerald</option>
+            <option value="amber">🟠 Amber</option>
+            <option value="rose">🔴 Rose</option>
+          </select>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-5">
+        <button onclick="closeCreateEpicModal()" class="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
+        <button onclick="handleCreateEpic()" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#0052cc] hover:bg-[#0747a6] rounded">Save Epic</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DETAIL DRAWER MODAL -->
+  <div id="detail-modal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-3.5 border-b border-gray-200 flex items-center justify-between bg-gray-50">
+        <div class="flex items-center gap-2">
+          <span id="detail-type-badge"></span>
+          <span id="detail-key" class="font-bold text-sm text-gray-800"></span>
+          <span id="detail-epic-badge" class="ml-2 text-xs font-bold px-2 py-0.5 rounded"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="deleteCurrentIssue()" title="Delete issue" class="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-gray-200">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
+          <button onclick="closeDetailModal()" class="p-1.5 text-gray-400 hover:text-gray-600 rounded hover:bg-gray-200">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
+        <div class="md:col-span-2 space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Summary</label>
+            <input 
+              type="text" 
+              id="detail-summary" 
+              onchange="updateField('summary', this.value)"
+              class="w-full text-base font-bold text-gray-900 border border-transparent hover:border-gray-300 focus:border-[#4c9aff] rounded px-2 py-1 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Description / Acceptance Criteria</label>
+            <textarea 
+              id="detail-description" 
+              rows="5" 
+              onchange="updateField('description', this.value)"
+              class="w-full text-xs text-gray-800 border border-gray-200 hover:border-gray-300 focus:border-[#4c9aff] rounded p-2.5 focus:outline-none font-mono"
+            ></textarea>
+          </div>
+
+          <div class="pt-4 border-t border-gray-200">
+            <h4 class="text-xs font-bold text-gray-600 uppercase mb-2">Comments &amp; QC Logs</h4>
+            <div class="flex gap-2 mb-3">
+              <input 
+                type="text" 
+                id="new-comment-input" 
+                placeholder="Log testing result, notes, or comment..."
+                onkeydown="if(event.key==='Enter') addComment()"
+                class="flex-1 border border-gray-300 rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#4c9aff]"
+              />
+              <button onclick="addComment()" class="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-xs font-semibold rounded">Post</button>
+            </div>
+            <div id="detail-comments" class="space-y-2 max-h-48 overflow-y-auto"></div>
+          </div>
+        </div>
+
+        <!-- SIDE PROPERTIES -->
+        <div class="space-y-3 bg-gray-50 p-4 rounded-lg border border-gray-200 text-xs">
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Status</label>
+            <select id="detail-status" onchange="updateField('status', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 font-bold text-blue-700 bg-white">
+              <option value="todo">TO DO / ANALYSIS</option>
+              <option value="in_progress">IN PROGRESS</option>
+              <option value="testing">QC / TESTING</option>
+              <option value="done">DONE</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Parent Epic</label>
+            <select id="detail-epic" onchange="updateField('epicId', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Role</label>
+            <select id="detail-role" onchange="updateField('role', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+              <option value="BA">📋 BA (Business Analyst)</option>
+              <option value="QC">🧪 QC (Tester)</option>
+              <option value="DEV">💻 Dev (Developer)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Priority</label>
+            <select id="detail-priority" onchange="updateField('priority', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+              <option value="highest">🔴 Highest (Blocker)</option>
+              <option value="high">🟠 High</option>
+              <option value="medium">🟡 Medium</option>
+              <option value="low">🟢 Low</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Sprint</label>
+            <select id="detail-sprint" onchange="updateField('sprint', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+              <option value="SPRINT-1">Sprint 1 (Active)</option>
+              <option value="BACKLOG">Product Backlog</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block font-bold text-gray-500 uppercase mb-1">Assignee</label>
+            <select id="detail-assignee" onchange="updateField('assignee', this.value)" class="w-full border border-gray-300 rounded px-2 py-1.5 bg-white">
+              <option value="ardvarez@gmail.com (You)">ardvarez@gmail.com (You)</option>
+              <option value="Rian (Lead BA)">Rian (Lead BA)</option>
+              <option value="Dewi (Sr. QC)">Dewi (Sr. QC)</option>
+              <option value="Budi (Dev)">Budi (Dev)</option>
+              <option value="Unassigned">Unassigned</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BOARD_COLUMNS = [
+      { id: 'todo', title: 'TO DO / ANALYSIS', color: 'border-gray-400', badge: 'BA &amp; Prep' },
+      { id: 'in_progress', title: 'IN PROGRESS', color: 'border-blue-500', badge: 'Active Work' },
+      { id: 'testing', title: 'QC / TESTING', color: 'border-amber-500', badge: 'QC Verification' },
+      { id: 'done', title: 'DONE', color: 'border-emerald-500', badge: 'Accepted' }
+    ];
+
+    const DEFAULT_EPICS = [
+      { id: 'EPIC-1', name: 'User Authentication & KYC', color: 'purple', project: 'CORE' },
+      { id: 'EPIC-2', name: 'Checkout & Payment Engine', color: 'blue', project: 'CORE' },
+      { id: 'EPIC-3', name: 'Reporting & Dashboard BA Export', color: 'emerald', project: 'CORE' }
+    ];
+
+    const DEFAULT_ISSUES = [
+      {
+        id: 'CORE-101',
+        project: 'CORE',
+        epicId: 'EPIC-1',
+        type: 'story',
+        role: 'BA',
+        summary: '[BA] Finalize PRD for Biometric 2FA Login Flow',
+        description: 'Acceptance Criteria:\n1. User with FaceID/Fingerprint can login under 1.5s.\n2. Fallback to OTP SMS when biometric fails 3x.\n3. Audit log user agent & IP.',
+        priority: 'high',
+        status: 'done',
+        sprint: 'SPRINT-1',
+        assignee: 'ardvarez@gmail.com (You)',
+        comments: ['PRD approved by Product Owner', 'Handoff to Dev complete'],
+        createdAt: '2026-10-16'
+      },
+      {
+        id: 'CORE-102',
+        project: 'CORE',
+        epicId: 'EPIC-1',
+        type: 'test_case',
+        role: 'QC',
+        summary: '[QC] Test Execution: Biometric Timeout & Fallback SMS',
+        description: 'Test Steps:\n1. Open App, trigger Biometric modal.\n2. Wait 30s timeout.\nExpected: Fallback to PIN / SMS OTP appears without crash.',
+        priority: 'highest',
+        status: 'testing',
+        sprint: 'SPRINT-1',
+        assignee: 'ardvarez@gmail.com (You)',
+        comments: ['Testing on iPhone 15 & Samsung S24', 'Found 1 minor delay on SMS trigger'],
+        createdAt: '2026-10-18'
+      },
+      {
+        id: 'CORE-103',
+        project: 'CORE',
+        epicId: 'EPIC-1',
+        type: 'bug',
+        role: 'QC',
+        summary: '[QC Defect] OTP SMS button can be spammed 5x in 2 seconds',
+        description: 'Severity: High\nReproduction Steps:\nTap "Resend OTP" rapidly.\nActual Result: 5 SMS sent, rate limiter bypassed.\nExpected: 60s cooldown disabled button.',
+        priority: 'highest',
+        status: 'in_progress',
+        sprint: 'SPRINT-1',
+        assignee: 'Budi (Dev)',
+        comments: ['Dev investigating Redis rate limiter key'],
+        createdAt: '2026-10-19'
+      },
+      {
+        id: 'CORE-104',
+        project: 'CORE',
+        epicId: 'EPIC-2',
+        type: 'task',
+        role: 'BA',
+        summary: '[BA] Map API Schema for QRIS & Virtual Account Payment',
+        description: 'Draft API contracts between Core Engine & Payment Gateway Provider.',
+        priority: 'high',
+        status: 'todo',
+        sprint: 'SPRINT-1',
+        assignee: 'ardvarez@gmail.com (You)',
+        comments: ['Waiting for third-party webhook specs'],
+        createdAt: '2026-10-19'
+      },
+      {
+        id: 'CORE-105',
+        project: 'CORE',
+        epicId: 'EPIC-2',
+        type: 'test_case',
+        role: 'QC',
+        summary: '[QC] Validate QRIS expired countdown & auto-cancel status',
+        description: 'Verify invoice changes to EXPIRED after 15 minutes without payment.',
+        priority: 'medium',
+        status: 'todo',
+        sprint: 'SPRINT-1',
+        assignee: 'Dewi (Sr. QC)',
+        comments: [],
+        createdAt: '2026-10-20'
+      },
+      {
+        id: 'CORE-106',
+        project: 'CORE',
+        epicId: 'EPIC-3',
+        type: 'story',
+        role: 'BA',
+        summary: '[BA] Business specs for Monthly Reconciliation Report (CSV/Excel)',
+        description: 'Need columns: Transaction ID, Timestamp, Merchant, Fee, Net Amount, Status.',
+        priority: 'low',
+        status: 'todo',
+        sprint: 'BACKLOG',
+        assignee: 'Rian (Lead BA)',
+        comments: [],
+        createdAt: '2026-10-18'
+      }
+    ];
+
+    let state = {
+      user: JSON.parse(localStorage.getItem('jira_session')) || null,
+      project: localStorage.getItem('jira_current_project') || 'CORE',
+      view: 'scrum',
+      swimlane: 'epic',
+      roleFilter: 'ALL',
+      epicFilter: 'ALL',
+      typeFilter: 'ALL',
+      searchQuery: '',
+      epics: JSON.parse(localStorage.getItem('jira_epics')) || DEFAULT_EPICS,
+      issues: JSON.parse(localStorage.getItem('jira_issues')) || DEFAULT_ISSUES,
+      activeIssueId: null,
+      draggedIssueId: null,
+      sync: JSON.parse(localStorage.getItem('jira_sync_config')) || { token: '', gistId: '' }
+    };
+
+    // AUTH FUNCTIONS
+    function checkAuth() {
+      const authScreen = document.getElementById('auth-screen');
+      const mainApp = document.getElementById('main-app');
+      if (state.user && state.user.email === 'ardvarez@gmail.com') {
+        authScreen.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+        renderAll();
+      } else {
+        authScreen.classList.remove('hidden');
+        mainApp.classList.add('hidden');
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById('login-email').value.trim();
+      const pass = document.getElementById('login-password').value.trim();
+      const errEl = document.getElementById('login-error');
+
+      if (email.toLowerCase() === 'ardvarez@gmail.com' && pass === 'ardvarez123') {
+        state.user = { email: 'ardvarez@gmail.com', name: 'Ardan (BA & QC Lead)', role: 'BA & QC Lead' };
+        localStorage.setItem('jira_session', JSON.stringify(state.user));
+        errEl.classList.add('hidden');
+        checkAuth();
+      } else {
+        errEl.textContent = 'Invalid credentials. Please use ardvarez@gmail.com / ardvarez123';
+        errEl.classList.remove('hidden');
+      }
+    }
+
+    function handleLogout() {
+      if (confirm('Log out from Jira Workspace?')) {
+        localStorage.removeItem('jira_session');
+        state.user = null;
+        checkAuth();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem('jira_epics', JSON.stringify(state.epics));
+      localStorage.setItem('jira_issues', JSON.stringify(state.issues));
+      localStorage.setItem('jira_current_project', state.project);
+      renderAll();
+    }
+
+    function resetData() {
+      if (confirm('Reset state to default BA & QC sample tasks?')) {
+        state.epics = DEFAULT_EPICS;
+        state.issues = DEFAULT_ISSUES;
+        saveState();
+      }
+    }
+
+    // PROJECT LOGIC
+    function changeProject(proj) {
+      state.project = proj;
+      document.getElementById('project-icon').textContent = proj.slice(0, 2);
+      const names = {
+        'CORE': 'Core Platform',
+        'PAY': 'Payment Gateway',
+        'MOBI': 'Mobile Apps'
+      };
+      document.getElementById('project-name-display').textContent = names[proj] || proj;
+      document.getElementById('crumb-project').textContent = names[proj] || proj;
+      saveState();
+    }
+
+    // VIEW LOGIC
+    function switchView(viewName) {
+      state.view = viewName;
+      ['scrum', 'backlog', 'kanban'].forEach(v => {
+        const btn = document.getElementById(`nav-${v}`);
+        const sideBtn = document.getElementById(`side-${v}`);
+        if (v === viewName) {
+          btn.className = "px-3 py-1.5 rounded flex items-center gap-1.5 font-semibold text-[#0052cc] bg-blue-50";
+          if (sideBtn) sideBtn.className = "w-full flex items-center gap-3 px-3 py-2 rounded text-[#0052cc] font-semibold bg-[#ebecf0]";
+        } else {
+          btn.className = "px-3 py-1.5 rounded flex items-center gap-1.5 text-gray-600 hover:bg-gray-100";
+          if (sideBtn) sideBtn.className = "w-full flex items-center gap-3 px-3 py-2 rounded text-gray-700 hover:bg-gray-200";
+        }
+      });
+
+      const boardView = document.getElementById('board-view-container');
+      const backlogView = document.getElementById('backlog-view-container');
+
+      if (viewName === 'backlog') {
+        boardView.classList.add('hidden');
+        backlogView.classList.remove('hidden');
+        document.getElementById('view-title').textContent = 'Backlog & Epic Planning';
+        document.getElementById('crumb-view').textContent = 'Backlog';
+      } else {
+        boardView.classList.remove('hidden');
+        backlogView.classList.add('hidden');
+        if (viewName === 'kanban') {
+          document.getElementById('view-title').textContent = 'All Kanban Board';
+          document.getElementById('crumb-view').textContent = 'Kanban';
+        } else {
+          document.getElementById('view-title').textContent = 'Sprint 1 (Active)';
+          document.getElementById('crumb-view').textContent = 'Active Sprint';
+        }
+      }
+
+      renderAll();
+    }
+
+    function changeSwimlane(mode) {
+      state.swimlane = mode;
+      renderAll();
+    }
+
+    function setRoleFilter(role) {
+      state.roleFilter = role;
+      ['all', 'ba', 'qc'].forEach(r => {
+        const btn = document.getElementById(`role-filter-${r}`);
+        if (r.toUpperCase() === role) {
+          btn.className = "w-full text-left px-2 py-1.5 rounded font-semibold bg-gray-200 text-gray-900";
+        } else {
+          btn.className = "w-full text-left px-2 py-1.5 rounded text-gray-600 hover:bg-gray-200";
+        }
+      });
+      renderAll();
+    }
+
+    function setTypeFilter(t) {
+      state.typeFilter = t;
+      ['all', 'story', 'test', 'bug'].forEach(k => {
+        const btn = document.getElementById(`pill-${k}`);
+        const map = { 'all': 'ALL', 'story': 'story', 'test': 'test_case', 'bug': 'bug' };
+        if (map[k] === t) {
+          btn.className = "px-2.5 py-1 rounded-full font-semibold bg-[#ebecf0] text-[#0052cc]";
+        } else {
+          btn.className = "px-2.5 py-1 rounded-full text-gray-600 hover:bg-gray-100 font-medium";
+        }
+      });
+      renderAll();
+    }
+
+    function handleSearch(val) {
+      state.searchQuery = val.toLowerCase();
+      renderAll();
+    }
+
+    // BADGES
+    function getTypeBadge(type) {
+      switch (type) {
+        case 'story': return '<span class="text-emerald-700 font-bold" title="User Story">📗 Story</span>';
+        case 'test_case': return '<span class="text-indigo-700 font-bold" title="QC Test Case">🧪 Test</span>';
+        case 'bug': return '<span class="text-rose-700 font-bold" title="Defect / Bug">📕 Bug</span>';
+        case 'epic': return '<span class="text-purple-700 font-bold" title="Epic">🟣 Epic</span>';
+        default: return '<span class="text-blue-700 font-bold" title="Task">📘 Task</span>';
+      }
+    }
+
+    function getPriorityIcon(p) {
+      switch (p) {
+        case 'highest': return '<span title="Highest (Blocker)" class="text-red-600 font-bold text-xs">⬆⬆</span>';
+        case 'high': return '<span title="High" class="text-amber-600 font-bold text-xs">⬆</span>';
+        case 'medium': return '<span title="Medium" class="text-yellow-600 font-bold text-xs">〓</span>';
+        default: return '<span title="Low" class="text-green-600 font-bold text-xs">⬇</span>';
+      }
+    }
+
+    function getEpicColorClasses(color) {
+      switch (color) {
+        case 'purple': return 'bg-purple-100 text-purple-800 border-purple-200';
+        case 'blue': return 'bg-blue-100 text-blue-800 border-blue-200';
+        case 'emerald': return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        case 'amber': return 'bg-amber-100 text-amber-800 border-amber-200';
+        case 'rose': return 'bg-rose-100 text-rose-800 border-rose-200';
+        default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      }
+    }
+
+    function getRoleBadge(role) {
+      if (role === 'BA') return '<span class="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold">BA</span>';
+      if (role === 'QC') return '<span class="bg-rose-100 text-rose-800 px-1.5 py-0.5 rounded text-[10px] font-bold">QC</span>';
+      return '<span class="bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded text-[10px] font-bold">DEV</span>';
+    }
+
+    // MAIN RENDER
+    function renderAll() {
+      let currentIssues = state.issues.filter(i => (i.project || 'CORE') === state.project);
+
+      const baCount = currentIssues.filter(i => i.role === 'BA').length;
+      const qcCount = currentIssues.filter(i => i.role === 'QC').length;
+      document.getElementById('count-ba-badge').textContent = baCount;
+      document.getElementById('count-qc-badge').textContent = qcCount;
+
+      renderEpicsSidebar();
+      renderEpicFilterPills();
+      populateEpicDropdowns();
+
+      if (state.view === 'backlog') {
+        renderBacklog(currentIssues);
+      } else {
+        renderSwimlaneBoard(currentIssues);
+      }
+
+      if (state.sync && state.sync.gistId) {
+        document.getElementById('sync-status-label').textContent = 'Cloud Synced';
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function populateEpicDropdowns() {
+      const epics = state.epics.filter(e => (e.project || 'CORE') === state.project);
+      const opts = epics.map(e => `<option value="${e.id}">🟣 ${escapeHtml(e.name)}</option>`).join('') +
+        '<option value="">(No Epic)</option>';
+
+      document.getElementById('issue-epic').innerHTML = opts;
+      document.getElementById('detail-epic').innerHTML = opts;
+    }
+
+    function renderEpicsSidebar() {
+      const epics = state.epics.filter(e => (e.project || 'CORE') === state.project);
+      const container = document.getElementById('side-epic-list');
+      if (!epics.length) {
+        container.innerHTML = '<p class="text-xs text-gray-400 italic">No epics in project.</p>';
+        return;
+      }
+
+      const issues = state.issues.filter(i => (i.project || 'CORE') === state.project);
+
+      container.innerHTML = epics.map(epic => {
+        const childIssues = issues.filter(i => i.epicId === epic.id);
+        const doneIssues = childIssues.filter(i => i.status === 'done');
+        const pct = childIssues.length ? Math.round((doneIssues.length / childIssues.length) * 100) : 0;
+
+        return `
+          <div class="p-2 rounded border border-gray-200 bg-white shadow-2xs hover:border-purple-300 transition cursor-pointer" onclick="filterByEpic('${epic.id}')">
+            <div class="flex items-center justify-between text-xs font-semibold mb-1">
+              <span class="truncate pr-1 text-gray-800">${escapeHtml(epic.name)}</span>
+              <span class="text-[10px] text-gray-500 font-bold">${pct}%</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div class="bg-purple-600 h-1.5 rounded-full transition-all" style="width: ${pct}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderEpicFilterPills() {
+      const epics = state.epics.filter(e => (e.project || 'CORE') === state.project);
+      const container = document.getElementById('epic-pill-container');
+      
+      let html = `
+        <button onclick="filterByEpic('ALL')" class="px-2 py-0.5 rounded text-[11px] font-bold ${state.epicFilter === 'ALL' ? 'bg-purple-700 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}">
+          All Epics
+        </button>
+      `;
+
+      html += epics.map(e => `
+        <button onclick="filterByEpic('${e.id}')" class="px-2 py-0.5 rounded text-[11px] font-bold border ${state.epicFilter === e.id ? 'bg-purple-700 text-white border-purple-700' : getEpicColorClasses(e.color)}">
+          🟣 ${escapeHtml(e.name)}
+        </button>
+      `).join('');
+
+      container.innerHTML = html;
+    }
+
+    function filterByEpic(epicId) {
+      state.epicFilter = epicId;
+      renderAll();
+    }
+
+    function renderSwimlaneBoard(currentIssues) {
+      const container = document.getElementById('swimlane-rows');
+      container.innerHTML = '';
+
+      let list = currentIssues;
+      if (state.view === 'scrum') {
+        list = list.filter(i => (i.sprint || 'SPRINT-1') === 'SPRINT-1');
+      }
+
+      if (state.roleFilter !== 'ALL') list = list.filter(i => i.role === state.roleFilter);
+      if (state.epicFilter !== 'ALL') list = list.filter(i => i.epicId === state.epicFilter);
+      if (state.typeFilter !== 'ALL') list = list.filter(i => i.type === state.typeFilter);
+      if (state.searchQuery) {
+        const q = state.searchQuery;
+        list = list.filter(i => i.summary.toLowerCase().includes(q) || i.id.toLowerCase().includes(q));
+      }
+
+      document.getElementById('issue-stats-badge').textContent = `Showing ${list.length} tasks`;
+
+      let groups = [];
+      if (state.swimlane === 'epic') {
+        const epics = state.epics.filter(e => (e.project || 'CORE') === state.project);
+        epics.forEach(e => {
+          groups.push({
+            id: e.id,
+            title: `🟣 Epic: ${e.name}`,
+            badgeClass: getEpicColorClasses(e.color),
+            issues: list.filter(i => i.epicId === e.id)
+          });
+        });
+        const unassigned = list.filter(i => !i.epicId);
+        if (unassigned.length || !epics.length) {
+          groups.push({ id: 'no_epic', title: 'Issues Without Epic', badgeClass: 'bg-gray-200 text-gray-700', issues: unassigned });
+        }
+      } else if (state.swimlane === 'role') {
+        groups = [
+          { id: 'BA', title: '📋 Business Analyst (BA) Requirements & Specs', badgeClass: 'bg-blue-100 text-blue-800', issues: list.filter(i => i.role === 'BA') },
+          { id: 'QC', title: '🧪 Quality Control (QC) Test Cases & Bugs', badgeClass: 'bg-rose-100 text-rose-800', issues: list.filter(i => i.role === 'QC') },
+          { id: 'DEV', title: '💻 Development Tasks', badgeClass: 'bg-gray-100 text-gray-800', issues: list.filter(i => i.role === 'DEV') }
+        ];
+      } else if (state.swimlane === 'priority') {
+        groups = [
+          { id: 'highest', title: '🔴 Highest / Blocker', badgeClass: 'bg-red-100 text-red-800', issues: list.filter(i => i.priority === 'highest') },
+          { id: 'high', title: '🟠 High Priority', badgeClass: 'bg-amber-100 text-amber-800', issues: list.filter(i => i.priority === 'high') },
+          { id: 'medium', title: '🟡 Medium Priority', badgeClass: 'bg-yellow-100 text-yellow-800', issues: list.filter(i => i.priority === 'medium') },
+          { id: 'low', title: '🟢 Low Priority', badgeClass: 'bg-green-100 text-green-800', issues: list.filter(i => i.priority === 'low') }
+        ];
+      } else {
+        groups = [{ id: 'all', title: 'All Sprint Tasks', badgeClass: 'bg-blue-50 text-blue-800', issues: list }];
+      }
+
+      groups.forEach(g => {
+        const rowEl = document.createElement('div');
+        rowEl.className = 'bg-white rounded-lg border border-gray-200 shadow-xs overflow-hidden mb-5';
+        
+        rowEl.innerHTML = `
+          <div class="px-4 py-2.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-xs uppercase px-2 py-0.5 rounded border ${g.badgeClass}">${g.title}</span>
+              <span class="text-xs text-gray-500 font-medium">(${g.issues.length} items)</span>
+            </div>
+            <button onclick="openCreateModal('todo', 'SPRINT-1', '${g.id.startsWith('EPIC-') ? g.id : ''}')" class="text-xs text-[#0052cc] hover:underline font-semibold flex items-center gap-1">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add to this swimlane
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3 p-3 bg-[#f8f9fa] overflow-x-auto">
+            ${BOARD_COLUMNS.map(col => {
+              const colIssues = g.issues.filter(i => i.status === col.id);
+              return `
+                <div class="flex flex-col bg-[#ebecf0] rounded-md p-2 min-h-[140px] border border-gray-200">
+                  <div class="flex items-center justify-between text-[11px] font-bold text-gray-600 mb-2 px-1 border-t-2 ${col.color} pt-1">
+                    <span>${col.title}</span>
+                    <span class="bg-gray-300 text-gray-800 rounded-full px-1.5 py-0.2 text-[10px]">${colIssues.length}</span>
+                  </div>
+
+                  <div 
+                    id="drop-${g.id}-${col.id}"
+                    class="space-y-2 flex-1 min-h-[100px]"
+                    ondragover="handleDragOver(event)"
+                    ondragleave="handleDragLeave(event)"
+                    ondrop="handleDrop(event, '${col.id}')"
+                  >
+                    ${colIssues.map(issue => renderCard(issue)).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+
+        container.appendChild(rowEl);
+      });
+    }
+
+    function renderCard(issue) {
+      const epic = state.epics.find(e => e.id === issue.epicId);
+      const epicBadge = epic ? `
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded border truncate max-w-[130px] ${getEpicColorClasses(epic.color)}" title="${escapeHtml(epic.name)}">
+          🟣 ${escapeHtml(epic.name)}
+        </span>
+      ` : '';
+
+      return `
+        <div 
+          id="card-${issue.id}"
+          draggable="true"
+          ondragstart="handleDragStart(event, '${issue.id}')"
+          ondragend="handleDragEnd(event)"
+          onclick="openDetailModal('${issue.id}')"
+          class="bg-white p-3 rounded card-shadow border border-gray-200 cursor-pointer select-none space-y-2 hover:border-[#4c9aff] transition"
+        >
+          <div class="flex items-center justify-between gap-1 flex-wrap">
+            ${epicBadge}
+            ${getRoleBadge(issue.role)}
+          </div>
+
+          <p class="text-xs font-semibold text-gray-900 leading-snug line-clamp-2">${escapeHtml(issue.summary)}</p>
+
+          <div class="flex items-center justify-between text-[11px] pt-1.5 border-t border-gray-100 text-gray-500">
+            <div class="flex items-center gap-1.5 font-bold">
+              ${getTypeBadge(issue.type).split(' ')[0]}
+              <span class="text-gray-700">${issue.id}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${getPriorityIcon(issue.priority)}
+              <div class="w-5 h-5 rounded-full bg-emerald-600 text-white font-bold text-[9px] flex items-center justify-center" title="${issue.assignee}">
+                AV
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBacklog(currentIssues) {
+      const activeList = document.getElementById('backlog-sprint-list');
+      const backlogList = document.getElementById('backlog-product-list');
+
+      const sprintIssues = currentIssues.filter(i => (i.sprint || 'SPRINT-1') === 'SPRINT-1');
+      const productIssues = currentIssues.filter(i => i.sprint === 'BACKLOG');
+
+      document.getElementById('active-sprint-count').textContent = `${sprintIssues.length} issues`;
+      document.getElementById('backlog-count').textContent = `${productIssues.length} issues`;
+
+      function renderBacklogRow(issue, canMoveTo) {
+        const epic = state.epics.find(e => e.id === issue.epicId);
+        return `
+          <div class="p-2.5 bg-white hover:bg-gray-50 flex items-center justify-between gap-3 text-xs cursor-pointer rounded" onclick="openDetailModal('${issue.id}')">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="font-bold">${getTypeBadge(issue.type).split(' ')[0]}</span>
+              <span class="font-bold text-gray-700 shrink-0">${issue.id}</span>
+              ${epic ? `<span class="text-[10px] font-bold px-1.5 py-0.5 rounded border ${getEpicColorClasses(epic.color)}">🟣 ${escapeHtml(epic.name)}</span>` : ''}
+              ${getRoleBadge(issue.role)}
+              <span class="text-gray-900 font-medium truncate">${escapeHtml(issue.summary)}</span>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs font-bold uppercase text-blue-700 bg-blue-50 px-2 py-0.5 rounded">${issue.status.replace('_', ' ')}</span>
+              ${getPriorityIcon(issue.priority)}
+              <button onclick="event.stopPropagation(); moveSprint('${issue.id}', '${canMoveTo}')" class="px-2 py-1 text-[11px] font-semibold border rounded hover:bg-gray-100 text-gray-700">
+                ${canMoveTo === 'SPRINT-1' ? '⬆ Move to Sprint' : '⬇ Move to Backlog'}
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      activeList.innerHTML = sprintIssues.map(i => renderBacklogRow(i, 'BACKLOG')).join('') || '<p class="text-xs text-gray-400 p-3 italic">Sprint is empty.</p>';
+      backlogList.innerHTML = productIssues.map(i => renderBacklogRow(i, 'SPRINT-1')).join('') || '<p class="text-xs text-gray-400 p-3 italic">Product backlog is empty.</p>';
+    }
+
+    function moveSprint(id, targetSprint) {
+      const issue = state.issues.find(i => i.id === id);
+      if (issue) {
+        issue.sprint = targetSprint;
+        saveState();
+      }
+    }
+
+    // DRAG AND DROP
+    function handleDragStart(e, id) {
+      state.draggedIssueId = id;
+      e.dataTransfer.setData('text/plain', id);
+      setTimeout(() => {
+        const card = document.getElementById(`card-${id}`);
+        if (card) card.classList.add('dragging');
+      }, 0);
+    }
+
+    function handleDragEnd(e) {
+      document.querySelectorAll('.dragging').forEach(c => c.classList.remove('dragging'));
+      document.querySelectorAll('[id^="drop-"]').forEach(c => c.classList.remove('drag-over'));
+      state.draggedIssueId = null;
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function handleDrop(e, newStatus) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('drag-over');
+      const id = state.draggedIssueId || e.dataTransfer.getData('text/plain');
+      if (!id) return;
+
+      const issue = state.issues.find(i => i.id === id);
+      if (issue && issue.status !== newStatus) {
+        issue.status = newStatus;
+        saveState();
+      }
+    }
+
+    // CREATE WORK ITEM
+    function openCreateModal(status = 'todo', sprint = 'SPRINT-1', epicId = '') {
+      document.getElementById('issue-status').value = status;
+      document.getElementById('issue-sprint').value = sprint;
+      if (epicId) document.getElementById('issue-epic').value = epicId;
+      document.getElementById('create-modal').classList.remove('hidden');
+      document.getElementById('issue-summary').focus();
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.add('hidden');
+      document.getElementById('create-form').reset();
+    }
+
+    function handleCreateIssue(e) {
+      e.preventDefault();
+      const proj = state.project;
+      const count = state.issues.filter(i => (i.project || 'CORE') === proj).length + 101;
+      const newIssue = {
+        id: `${proj}-${count}`,
+        project: proj,
+        type: document.getElementById('issue-type').value,
+        epicId: document.getElementById('issue-epic').value || null,
+        role: document.getElementById('issue-role').value,
+        summary: document.getElementById('issue-summary').value.trim(),
+        description: document.getElementById('issue-description').value.trim(),
+        priority: document.getElementById('issue-priority').value,
+        sprint: document.getElementById('issue-sprint').value,
+        status: document.getElementById('issue-status').value,
+        assignee: document.getElementById('issue-assignee').value,
+        comments: [],
+        createdAt: new Date().toISOString().split('T')[0]
+      };
+
+      state.issues.unshift(newIssue);
+      saveState();
+      closeCreateModal();
+    }
+
+    // CREATE EPIC
+    function openCreateEpicModal() {
+      document.getElementById('create-epic-modal').classList.remove('hidden');
+      document.getElementById('new-epic-name').focus();
+    }
+
+    function closeCreateEpicModal() {
+      document.getElementById('create-epic-modal').classList.add('hidden');
+    }
+
+    function handleCreateEpic() {
+      const name = document.getElementById('new-epic-name').value.trim();
+      const color = document.getElementById('new-epic-color').value;
+      if (!name) return;
+
+      const id = `EPIC-${state.epics.length + 1}`;
+      state.epics.push({
+        id: id,
+        name: name,
+        color: color,
+        project: state.project
+      });
+
+      saveState();
+      closeCreateEpicModal();
+      document.getElementById('new-epic-name').value = '';
+    }
+
+    // DETAIL MODAL
+    function openDetailModal(id) {
+      state.activeIssueId = id;
+      const issue = state.issues.find(i => i.id === id);
+      if (!issue) return;
+
+      document.getElementById('detail-key').textContent = issue.id;
+      document.getElementById('detail-type-badge').innerHTML = getTypeBadge(issue.type);
+      
+      const epic = state.epics.find(e => e.id === issue.epicId);
+      const epicBadgeEl = document.getElementById('detail-epic-badge');
+      if (epic) {
+        epicBadgeEl.textContent = `🟣 ${epic.name}`;
+        epicBadgeEl.className = `ml-2 text-xs font-bold px-2 py-0.5 rounded border ${getEpicColorClasses(epic.color)}`;
+        epicBadgeEl.classList.remove('hidden');
+      } else {
+        epicBadgeEl.classList.add('hidden');
+      }
+
+      document.getElementById('detail-summary').value = issue.summary;
+      document.getElementById('detail-description').value = issue.description || '';
+      document.getElementById('detail-status').value = issue.status;
+      document.getElementById('detail-epic').value = issue.epicId || '';
+      document.getElementById('detail-role').value = issue.role || 'BA';
+      document.getElementById('detail-priority').value = issue.priority;
+      document.getElementById('detail-sprint').value = issue.sprint || 'SPRINT-1';
+      document.getElementById('detail-assignee').value = issue.assignee;
+
+      renderComments(issue.comments || []);
+      document.getElementById('detail-modal').classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+      state.activeIssueId = null;
+    }
+
+    function updateField(field, val) {
+      if (!state.activeIssueId) return;
+      const issue = state.issues.find(i => i.id === state.activeIssueId);
+      if (!issue) return;
+
+      issue[field] = val;
+      saveState();
+      if (field === 'epicId') {
+        const epic = state.epics.find(e => e.id === val);
+        const epicBadgeEl = document.getElementById('detail-epic-badge');
+        if (epic) {
+          epicBadgeEl.textContent = `🟣 ${epic.name}`;
+          epicBadgeEl.className = `ml-2 text-xs font-bold px-2 py-0.5 rounded border ${getEpicColorClasses(epic.color)}`;
+          epicBadgeEl.classList.remove('hidden');
+        } else {
+          epicBadgeEl.classList.add('hidden');
+        }
+      }
+    }
+
+    function renderComments(comments) {
+      const container = document.getElementById('detail-comments');
+      if (!comments.length) {
+        container.innerHTML = '<p class="text-xs text-gray-400 italic">No notes or comments yet.</p>';
+        return;
+      }
+      container.innerHTML = comments.map(c => `
+        <div class="bg-gray-50 border border-gray-200 p-2 rounded text-xs text-gray-800">
+          ${escapeHtml(c)}
+        </div>
+      `).join('');
+    }
+
+    function addComment() {
+      const input = document.getElementById('new-comment-input');
+      const val = input.value.trim();
+      if (!val || !state.activeIssueId) return;
+
+      const issue = state.issues.find(i => i.id === state.activeIssueId);
+      if (!issue) return;
+
+      if (!issue.comments) issue.comments = [];
+      issue.comments.push(val);
+      saveState();
+      renderComments(issue.comments);
+      input.value = '';
+    }
+
+    function deleteCurrentIssue() {
+      if (!state.activeIssueId) return;
+      if (confirm(`Delete issue ${state.activeIssueId}?`)) {
+        state.issues = state.issues.filter(i => i.id !== state.activeIssueId);
+        saveState();
+        closeDetailModal();
+      }
+    }
+
+    // GIST CLOUD SYNC
+    function openSyncModal() {
+      document.getElementById('sync-token').value = state.sync.token || '';
+      document.getElementById('sync-gist-id').value = state.sync.gistId || '';
+      document.getElementById('sync-feedback').classList.add('hidden');
+      document.getElementById('sync-modal').classList.remove('hidden');
+    }
+
+    function closeSyncModal() {
+      document.getElementById('sync-modal').classList.add('hidden');
+    }
+
+    async function pushToGist() {
+      const token = document.getElementById('sync-token').value.trim();
+      let gistId = document.getElementById('sync-gist-id').value.trim();
+      const fb = document.getElementById('sync-feedback');
+
+      if (!token) {
+        fb.textContent = 'Please enter a GitHub Personal Access Token (PAT).';
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+        return;
+      }
+
+      fb.textContent = 'Pushing data to GitHub Gist...';
+      fb.className = 'p-2 rounded text-xs bg-blue-100 text-blue-700 block';
+
+      const payload = {
+        description: 'Jira Workspace Task Data Backup',
+        public: false,
+        files: {
+          'jira_data.json': {
+            content: JSON.stringify({ epics: state.epics, issues: state.issues }, null, 2)
+          }
+        }
+      };
+
+      try {
+        const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
+        const method = gistId ? 'PATCH' : 'POST';
+
+        const res = await fetch(url, {
+          method: method,
+          headers: {
+            'Authorization': `token ${token}`,
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
+        const data = await res.json();
+        gistId = data.id;
+
+        state.sync = { token: token, gistId: gistId };
+        localStorage.setItem('jira_sync_config', JSON.stringify(state.sync));
+        document.getElementById('sync-gist-id').value = gistId;
+
+        fb.textContent = `Success! Data synced to Private Gist ID: ${gistId}`;
+        fb.className = 'p-2 rounded text-xs bg-emerald-100 text-emerald-800 block';
+        document.getElementById('sync-status-label').textContent = 'Cloud Synced';
+      } catch (err) {
+        fb.textContent = `Error: ${err.message}`;
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+      }
+    }
+
+    async function pullFromGist() {
+      const token = document.getElementById('sync-token').value.trim();
+      const gistId = document.getElementById('sync-gist-id').value.trim();
+      const fb = document.getElementById('sync-feedback');
+
+      if (!gistId) {
+        fb.textContent = 'Enter a valid Gist ID to pull from.';
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+        return;
+      }
+
+      fb.textContent = 'Pulling data from GitHub Gist...';
+      fb.className = 'p-2 rounded text-xs bg-blue-100 text-blue-700 block';
+
+      try {
+        const headers = { 'Accept': 'application/vnd.github.v3+json' };
+        if (token) headers['Authorization'] = `token ${token}`;
+
+        const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
+        if (!res.ok) throw new Error(`GitHub API error: ${res.statusText}`);
+        const data = await res.json();
+
+        if (data.files && data.files['jira_data.json']) {
+          const parsed = JSON.parse(data.files['jira_data.json'].content);
+          if (parsed.issues) state.issues = parsed.issues;
+          if (parsed.epics) state.epics = parsed.epics;
+          saveState();
+          fb.textContent = 'Data pulled successfully into workspace!';
+          fb.className = 'p-2 rounded text-xs bg-emerald-100 text-emerald-800 block';
+        } else {
+          throw new Error('jira_data.json file not found in this Gist.');
+        }
+      } catch (err) {
+        fb.textContent = `Error: ${err.message}`;
+        fb.className = 'p-2 rounded text-xs bg-red-100 text-red-700 block';
+      }
+    }
+
+    // EXPORT / IMPORT JSON
+    function exportJSON() {
+      const data = { epics: state.epics, issues: state.issues };
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute("href", dataStr);
+      a.setAttribute("download", `jira-scrum-backup-${state.project}-${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    function importJSON(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          if (parsed.issues) state.issues = parsed.issues;
+          if (parsed.epics) state.epics = parsed.epics;
+          saveState();
+          alert('Data imported successfully!');
+        } catch(err) {
+          alert('Invalid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeCreateModal();
+        closeCreateEpicModal();
+        closeDetailModal();
+        closeSyncModal();
+      }
+    });
+
+    // INITIALIZE WITH AUTH CHECK
+    checkAuth();
+  </script>
+</body>
+</html>

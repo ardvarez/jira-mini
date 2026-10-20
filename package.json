@@ -1,0 +1,13 @@
+{
+  "name": "jira-mini",
+  "version": "1.0.0",
+  "description": "Simple Jira-style task management board",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["jira", "kanban", "task-management"],
+  "author": "",
+  "license": "MIT"
+}
