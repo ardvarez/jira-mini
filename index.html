@@ -816,10 +816,18 @@
         <div class="px-6 py-3 border-b border-gray-200/70 bg-white flex flex-col gap-3 shrink-0">
           <div class="flex items-center justify-between flex-wrap gap-3">
             <div class="flex items-center gap-3">
-              <h1 id="view-title" class="text-xl font-extrabold text-gray-900 tracking-tight">Sprint 1 (Tahap 1 - Transmisi)</h1>
+              <div class="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-xl border border-gray-200">
+                <i data-lucide="play-circle" class="w-4 h-4 text-blue-600"></i>
+                <select id="board-sprint-select" onchange="changeBoardSprint(this.value)" class="bg-transparent font-extrabold text-sm text-gray-900 focus:outline-none cursor-pointer">
+                  <option value="SPRINT-1">Sprint 1 (Aktif)</option>
+                </select>
+              </div>
               <span id="sprint-date-badge" class="text-[11px] bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-lg border border-blue-200">
                 📅 19 Okt - 23 Okt 2026
               </span>
+              <button onclick="openCreateSprintModal()" class="px-2.5 py-1 text-xs font-bold text-[#0c66e4] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl flex items-center gap-1 transition" title="Buat Sprint Baru">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Sprint Baru
+              </button>
             </div>
 
             <!-- Controls: Search & Swimlane -->
@@ -923,25 +931,38 @@
         <!-- VIEW 2: BACKLOG & PLANNING -->
         <div id="backlog-view-container" class="flex-1 overflow-auto p-6 bg-[#f7f8fa] hidden">
           <div class="max-w-5xl mx-auto space-y-6">
-            <div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
-              <div class="px-5 py-3.5 bg-blue-50/60 border-b border-blue-100 flex items-center justify-between">
-                <div class="flex items-center gap-2.5">
-                  <i data-lucide="play-circle" class="w-4 h-4 text-blue-600"></i>
-                  <h3 class="font-bold text-sm text-gray-900">Sprint 1 (Aktif)</h3>
-                  <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold" id="active-sprint-count">0 task</span>
+            <!-- Backlog Action Header -->
+            <div class="flex items-center justify-between flex-wrap gap-4 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-xs">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200/60 flex items-center justify-center text-[#0c66e4]">
+                  <i data-lucide="calendar" class="w-5 h-5"></i>
                 </div>
-                <button onclick="switchView('scrum')" class="text-xs font-bold text-blue-700 hover:underline">
-                  Buka di Board →
+                <div>
+                  <h2 class="text-base font-extrabold text-gray-900 tracking-tight">Sprint &amp; Backlog Planning</h2>
+                  <p class="text-xs text-gray-500 font-medium">Kelola iterasi sprint, backlog produk, dan migrasi task yang belum selesai.</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="openMoveUnfinishedTasksModal()" class="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold rounded-xl flex items-center gap-1.5 transition" title="Pindahkan task yang belum selesai ke sprint lain">
+                  <i data-lucide="arrow-right-left" class="w-3.5 h-3.5 text-amber-600"></i>
+                  <span>Pindahkan Task Belum Selesai</span>
+                </button>
+                <button onclick="openCreateSprintModal()" class="px-4 py-2 bg-[#0c66e4] hover:bg-blue-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition shadow-sm">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  <span>Buat Sprint Baru</span>
                 </button>
               </div>
-              <div id="backlog-sprint-list" class="divide-y divide-gray-100 p-2 space-y-1"></div>
             </div>
 
+            <!-- Dynamic Sprints Container -->
+            <div id="backlog-sprints-container" class="space-y-6"></div>
+
+            <!-- Product Backlog Container -->
             <div class="bg-white rounded-2xl border border-gray-200/80 shadow-xs overflow-hidden">
               <div class="px-5 py-3.5 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                 <div class="flex items-center gap-2.5">
                   <i data-lucide="layers" class="w-4 h-4 text-gray-600"></i>
-                  <h3 class="font-bold text-sm text-gray-900">Product Backlog (Sprint Berikutnya)</h3>
+                  <h3 class="font-bold text-sm text-gray-900">Product Backlog (Unplanned)</h3>
                   <span class="text-xs bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full font-bold" id="backlog-count">0 task</span>
                 </div>
                 <button onclick="openCreateModal('todo', 'BACKLOG')" class="bg-white border border-gray-200 text-xs font-bold px-3 py-1.5 rounded-xl hover:bg-gray-50 flex items-center gap-1 text-gray-700">
@@ -1687,6 +1708,119 @@
     </div>
   </div>
 
+  <!-- ================= CREATE SPRINT MODAL ================= -->
+  <div id="create-sprint-modal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50/40">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-gray-900">Buat Sprint Baru</h3>
+            <p class="text-[11px] text-gray-500 font-medium">Tambah sprint iterasi baru &amp; migrasikan task</p>
+          </div>
+        </div>
+        <button onclick="closeCreateSprintModal()" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="create-sprint-form" onsubmit="handleCreateSprint(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nama Sprint <span class="text-rose-500">*</span></label>
+          <input type="text" id="new-sprint-name" required placeholder="Contoh: Sprint 2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Sprint Goal / Sasaran</label>
+          <input type="text" id="new-sprint-goal" placeholder="Contoh: Tahap 2 - Monitoring &amp; Penugasan" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Mulai</label>
+            <input type="date" id="new-sprint-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Selesai</label>
+            <input type="date" id="new-sprint-end" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
+          </div>
+        </div>
+
+        <!-- MIGRATION OPTION -->
+        <div class="p-3.5 rounded-xl border border-blue-200 bg-blue-50/60 space-y-2">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" id="new-sprint-move-unfinished" checked class="mt-0.5 rounded text-blue-600 focus:ring-blue-500" />
+            <div>
+              <span class="text-xs font-bold text-gray-900">Pindahkan task yang belum selesai ke Sprint baru ini</span>
+              <p id="new-sprint-move-preview" class="text-[11px] text-gray-600 mt-0.5 leading-snug">
+                Memindahkan semua task dari Sprint Aktif yang belum berstatus "Done".
+              </p>
+            </div>
+          </label>
+        </div>
+
+        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeCreateSprintModal()" class="px-4 py-2 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-100 text-gray-600 transition">
+            Batal
+          </button>
+          <button type="submit" class="px-5 py-2 bg-[#0c66e4] hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5">
+            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+            <span>Simpan Sprint</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MOVE UNFINISHED TASKS MODAL ================= -->
+  <div id="move-unfinished-tasks-modal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50/40">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
+            <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h3 class="font-extrabold text-sm text-gray-900">Pindahkan Task Belum Selesai</h3>
+            <p class="text-[11px] text-gray-500 font-medium">Migrasikan task sisa/in-progress ke sprint lain</p>
+          </div>
+        </div>
+        <button onclick="closeMoveUnfinishedTasksModal()" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dari Sprint Asal</label>
+          <select id="move-source-sprint" onchange="updateMoveUnfinishedPreview()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4] bg-white"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Ke Sprint Tujuan</label>
+          <select id="move-target-sprint" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4] bg-white"></select>
+        </div>
+
+        <div id="move-preview-box" class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 text-amber-950 space-y-1">
+          <p class="font-bold text-xs" id="move-preview-count">0 task akan dipindahkan</p>
+          <p class="text-[11px] text-amber-800" id="move-preview-desc">Hanya task dengan status selain "Done" dan "Closed" yang dipindahkan.</p>
+        </div>
+
+        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5">
+          <button type="button" onclick="closeMoveUnfinishedTasksModal()" class="px-4 py-2 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-100 text-gray-600 transition">
+            Batal
+          </button>
+          <button type="button" onclick="executeMoveUnfinishedTasks()" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5">
+            <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            <span>Pindahkan Sekarang</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= USER MANAGEMENT MODAL ================= -->
   <div id="user-management-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] border border-gray-100 text-xs">
@@ -2146,6 +2280,7 @@
         lead: 'Ardan', 
         members: [
           { name: 'Ardan', email: 'ardvarez@gmail.com', role: 'PM' },
+          { name: 'Banyu Rizkika', email: 'banyurizkika@gmail.com', role: 'PM' },
           { name: 'Bagus', email: 'bagus@pln.co.id', role: 'DEV' },
           { name: 'QC Specialist', email: 'qc@pln.co.id', role: 'QC' },
           { name: 'BA Analyst', email: 'ba@pln.co.id', role: 'BA' }
@@ -2158,6 +2293,7 @@
         lead: 'Ardan', 
         members: [
           { name: 'Ardan', email: 'ardvarez@gmail.com', role: 'PM' },
+          { name: 'Banyu Rizkika', email: 'banyurizkika@gmail.com', role: 'PM' },
           { name: 'Bagus', email: 'bagus@pln.co.id', role: 'DEV' }
         ]
       },
@@ -2167,7 +2303,8 @@
         icon: '🏛️', 
         lead: 'Ardan', 
         members: [
-          { name: 'Ardan', email: 'ardvarez@gmail.com', role: 'PM' }
+          { name: 'Ardan', email: 'ardvarez@gmail.com', role: 'PM' },
+          { name: 'Banyu Rizkika', email: 'banyurizkika@gmail.com', role: 'PM' }
         ]
       }
     ];
@@ -2177,6 +2314,10 @@
       userRole: localStorage.getItem('jira_user_role') || 'PM', // PM, BA, QC, DEV
       project: localStorage.getItem('jira_current_project') || 'PINSP',
       projects: JSON.parse(localStorage.getItem('jira_projects')) || DEFAULT_PROJECTS,
+      sprints: JSON.parse(localStorage.getItem('jira_sprints')) || [
+        { id: 'SPRINT-1', projectId: 'PINSP', name: 'Sprint 1', goal: 'Tahap 1 - Transmisi', startDate: '2026-10-19', endDate: '2026-10-23', status: 'active' }
+      ],
+      activeSprintId: localStorage.getItem('jira_active_sprint_' + (localStorage.getItem('jira_current_project') || 'PINSP')) || 'SPRINT-1',
       view: 'scrum',
       swimlane: localStorage.getItem('jira_swimlane') || 'epic',
       roleFilter: 'ALL',
@@ -2467,6 +2608,12 @@
           hash: 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'
         },
         {
+          name: 'Banyu Rizkika',
+          email: 'banyurizkika@gmail.com',
+          role: 'PM',
+          hash: ''
+        },
+        {
           name: 'Bagus',
           email: 'bagus@pln.co.id',
           role: 'DEV',
@@ -2753,7 +2900,11 @@
       localStorage.setItem('jira_epics', JSON.stringify(state.epics));
       localStorage.setItem('jira_issues', JSON.stringify(state.issues));
       localStorage.setItem('jira_projects', JSON.stringify(state.projects));
+      localStorage.setItem('jira_sprints', JSON.stringify(state.sprints || []));
       localStorage.setItem('jira_current_project', state.project);
+      if (state.activeSprintId) {
+        localStorage.setItem(`jira_active_sprint_${state.project}`, state.activeSprintId);
+      }
       renderAll();
     }
 
@@ -2860,6 +3011,315 @@
       }
     }
 
+    // ================= SPRINT MANAGEMENT SYSTEM =================
+    function getProjectSprints(projectId = state.project) {
+      if (!Array.isArray(state.sprints)) {
+        state.sprints = [];
+      }
+      let projSprints = state.sprints.filter(s => (s.projectId || state.project) === projectId);
+
+      if (projSprints.length === 0) {
+        const defaultSprint = {
+          id: 'SPRINT-1',
+          projectId: projectId,
+          name: 'Sprint 1',
+          goal: 'Tahap 1 - Transmisi',
+          startDate: '2026-10-19',
+          endDate: '2026-10-23',
+          status: 'active'
+        };
+        state.sprints.push(defaultSprint);
+        projSprints.push(defaultSprint);
+        localStorage.setItem('jira_sprints', JSON.stringify(state.sprints));
+      }
+
+      // Auto-register any custom sprint IDs that exist on issues in this project
+      const existingIds = new Set(projSprints.map(s => s.id));
+      state.issues
+        .filter(i => (i.project || 'PINSP') === projectId && i.sprint && i.sprint !== 'BACKLOG')
+        .forEach(i => {
+          if (!existingIds.has(i.sprint)) {
+            existingIds.add(i.sprint);
+            const numMatch = i.sprint.match(/\d+/);
+            const num = numMatch ? numMatch[0] : (projSprints.length + 1);
+            const autoS = {
+              id: i.sprint,
+              projectId: projectId,
+              name: `Sprint ${num}`,
+              goal: '',
+              startDate: '',
+              endDate: '',
+              status: 'active'
+            };
+            state.sprints.push(autoS);
+            projSprints.push(autoS);
+          }
+        });
+
+      return projSprints;
+    }
+
+    function getActiveSprint(projectId = state.project) {
+      const sprints = getProjectSprints(projectId);
+      const activeId = state.activeSprintId || localStorage.getItem(`jira_active_sprint_${projectId}`);
+      const found = sprints.find(s => s.id === activeId);
+      if (found) return found;
+      return sprints[0];
+    }
+
+    function populateSprintDropdowns() {
+      const sprints = getProjectSprints();
+      const activeSprint = getActiveSprint();
+
+      // 1. Board sprint select
+      const boardSel = document.getElementById('board-sprint-select');
+      if (boardSel) {
+        boardSel.innerHTML = sprints.map(s => `
+          <option value="${s.id}" ${s.id === activeSprint.id ? 'selected' : ''}>
+            ${escapeHtml(s.name)}${s.goal ? ' - ' + escapeHtml(s.goal) : ''}
+          </option>
+        `).join('');
+      }
+
+      // 2. Issue Create & Detail sprint selects
+      const optsWithBacklog = sprints.map(s => `
+        <option value="${s.id}">${escapeHtml(s.name)}${s.goal ? ' (' + escapeHtml(s.goal) + ')' : ''}</option>
+      `).join('') + '<option value="BACKLOG">Product Backlog (Unplanned)</option>';
+
+      const issueSprint = document.getElementById('issue-sprint');
+      if (issueSprint) {
+        const cur = issueSprint.value;
+        issueSprint.innerHTML = optsWithBacklog;
+        if (cur && [...issueSprint.options].some(o => o.value === cur)) {
+          issueSprint.value = cur;
+        } else {
+          issueSprint.value = activeSprint.id;
+        }
+      }
+
+      const detailSprint = document.getElementById('detail-sprint');
+      if (detailSprint) {
+        const cur = detailSprint.value;
+        detailSprint.innerHTML = optsWithBacklog;
+        if (cur && [...detailSprint.options].some(o => o.value === cur)) {
+          detailSprint.value = cur;
+        }
+      }
+    }
+
+    function changeBoardSprint(sprintId) {
+      state.activeSprintId = sprintId;
+      localStorage.setItem(`jira_active_sprint_${state.project}`, sprintId);
+      renderAll();
+      showToast(`Melihat board: ${sprintId}`, 'info');
+    }
+
+    function openCreateSprintModal() {
+      const modal = document.getElementById('create-sprint-modal');
+      if (!modal) return;
+      const sprints = getProjectSprints();
+      const activeSprint = getActiveSprint();
+      
+      const nextNum = sprints.length + 1;
+      const nameInput = document.getElementById('new-sprint-name');
+      const goalInput = document.getElementById('new-sprint-goal');
+      const startInput = document.getElementById('new-sprint-start');
+      const endInput = document.getElementById('new-sprint-end');
+
+      if (nameInput) nameInput.value = `Sprint ${nextNum}`;
+      if (goalInput) goalInput.value = '';
+      
+      // Default dates
+      const today = new Date().toISOString().split('T')[0];
+      const next2Weeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      if (startInput) startInput.value = today;
+      if (endInput) endInput.value = next2Weeks;
+
+      // Unfinished tasks count preview
+      const unfinishedCount = state.issues.filter(i => 
+        (i.project || 'PINSP') === state.project &&
+        (i.sprint || 'SPRINT-1') === activeSprint.id &&
+        i.status !== 'done' && i.status !== 'closed'
+      ).length;
+
+      const previewEl = document.getElementById('new-sprint-move-preview');
+      if (previewEl) {
+        previewEl.textContent = `Memindahkan ${unfinishedCount} task belum selesai dari ${activeSprint.name} (${activeSprint.id}) ke sprint baru ini.`;
+      }
+
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeCreateSprintModal() {
+      document.getElementById('create-sprint-modal')?.classList.add('hidden');
+    }
+
+    async function handleCreateSprint(e) {
+      e.preventDefault();
+      const name = (document.getElementById('new-sprint-name')?.value || '').trim();
+      if (!name) {
+        showToast('Nama sprint wajib diisi!', 'warning');
+        return;
+      }
+      const goal = (document.getElementById('new-sprint-goal')?.value || '').trim();
+      const startDate = document.getElementById('new-sprint-start')?.value || '';
+      const endDate = document.getElementById('new-sprint-end')?.value || '';
+      const moveUnfinished = document.getElementById('new-sprint-move-unfinished')?.checked;
+
+      const sprints = getProjectSprints();
+      const nextNum = sprints.length + 1;
+      const sprintId = `SPRINT-${nextNum}`;
+
+      const newSprint = {
+        id: sprintId,
+        projectId: state.project,
+        name: name,
+        goal: goal,
+        startDate: startDate,
+        endDate: endDate,
+        status: 'active'
+      };
+
+      if (!Array.isArray(state.sprints)) state.sprints = [];
+      state.sprints.push(newSprint);
+
+      let movedCount = 0;
+      if (moveUnfinished) {
+        const activeSprint = getActiveSprint();
+        const activeId = activeSprint ? activeSprint.id : 'SPRINT-1';
+
+        const unfinished = state.issues.filter(i => 
+          (i.project || 'PINSP') === state.project &&
+          (i.sprint || 'SPRINT-1') === activeId &&
+          i.status !== 'done' && i.status !== 'closed'
+        );
+
+        unfinished.forEach(issue => {
+          issue.sprint = sprintId;
+          syncIssueToD1(issue);
+          movedCount++;
+        });
+      }
+
+      // Switch active sprint to newly created sprint
+      state.activeSprintId = sprintId;
+      localStorage.setItem(`jira_active_sprint_${state.project}`, sprintId);
+
+      saveState();
+      closeCreateSprintModal();
+
+      if (movedCount > 0) {
+        showToast(`Sprint "${name}" dibuat! ${movedCount} task belum selesai dipindahkan.`, 'success');
+      } else {
+        showToast(`Sprint "${name}" berhasil dibuat!`, 'success');
+      }
+    }
+
+    function openMoveUnfinishedTasksModal(defaultSourceId = null) {
+      const modal = document.getElementById('move-unfinished-tasks-modal');
+      if (!modal) return;
+
+      const sprints = getProjectSprints();
+      const activeSprint = getActiveSprint();
+      const sourceId = defaultSourceId || activeSprint.id;
+
+      const sourceSel = document.getElementById('move-source-sprint');
+      const targetSel = document.getElementById('move-target-sprint');
+
+      if (sourceSel) {
+        sourceSel.innerHTML = sprints.map(s => `
+          <option value="${s.id}" ${s.id === sourceId ? 'selected' : ''}>
+            ${escapeHtml(s.name)}${s.goal ? ' (' + escapeHtml(s.goal) + ')' : ''}
+          </option>
+        `).join('');
+      }
+
+      if (targetSel) {
+        targetSel.innerHTML = sprints.map(s => `
+          <option value="${s.id}">
+            ${escapeHtml(s.name)}${s.goal ? ' (' + escapeHtml(s.goal) + ')' : ''}
+          </option>
+        `).join('') + '<option value="BACKLOG">Product Backlog (Unplanned)</option>';
+        
+        // Auto select next sprint if exists
+        const nextSprint = sprints.find(s => s.id !== sourceId);
+        if (nextSprint) targetSel.value = nextSprint.id;
+        else targetSel.value = 'BACKLOG';
+      }
+
+      updateMoveUnfinishedPreview();
+      modal.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function closeMoveUnfinishedTasksModal() {
+      document.getElementById('move-unfinished-tasks-modal')?.classList.add('hidden');
+    }
+
+    function updateMoveUnfinishedPreview() {
+      const sourceId = document.getElementById('move-source-sprint')?.value;
+      const countEl = document.getElementById('move-preview-count');
+      const descEl = document.getElementById('move-preview-desc');
+      if (!sourceId || !countEl) return;
+
+      const unfinished = state.issues.filter(i => 
+        (i.project || 'PINSP') === state.project &&
+        (i.sprint || 'SPRINT-1') === sourceId &&
+        i.status !== 'done' && i.status !== 'closed'
+      );
+
+      countEl.textContent = `${unfinished.length} task belum selesai ditemukan`;
+      if (descEl) {
+        if (unfinished.length > 0) {
+          const sample = unfinished.slice(0, 3).map(u => u.id).join(', ');
+          descEl.textContent = `Task yang akan dipindahkan: ${sample}${unfinished.length > 3 ? ` dan ${unfinished.length - 3} lainnya` : ''} (status selain Done).`;
+        } else {
+          descEl.textContent = 'Semua task pada sprint ini telah selesai atau belum ada task.';
+        }
+      }
+    }
+
+    async function executeMoveUnfinishedTasks() {
+      const sourceId = document.getElementById('move-source-sprint')?.value;
+      const targetId = document.getElementById('move-target-sprint')?.value;
+
+      if (!sourceId || !targetId) return;
+      if (sourceId === targetId) {
+        showToast('Sprint asal dan tujuan tidak boleh sama!', 'warning');
+        return;
+      }
+
+      const unfinished = state.issues.filter(i => 
+        (i.project || 'PINSP') === state.project &&
+        (i.sprint || 'SPRINT-1') === sourceId &&
+        i.status !== 'done' && i.status !== 'closed'
+      );
+
+      if (unfinished.length === 0) {
+        showToast('Tidak ada task belum selesai untuk dipindahkan.', 'info');
+        return;
+      }
+
+      const ok = await showConfirm({
+        title: 'Konfirmasi Migrasi Task',
+        message: `Pindahkan ${unfinished.length} task dari ${sourceId} ke ${targetId}?`,
+        confirmText: 'Pindahkan Task',
+        cancelText: 'Batal'
+      });
+
+      if (!ok) return;
+
+      unfinished.forEach(issue => {
+        issue.sprint = targetId;
+        syncIssueToD1(issue);
+      });
+
+      saveState();
+      closeMoveUnfinishedTasksModal();
+      showToast(`${unfinished.length} task berhasil dipindahkan ke ${targetId}!`, 'success');
+    }
+
     function setUserRole(role) {
       state.userRole = role;
       localStorage.setItem('jira_user_role', role);
@@ -2933,11 +3393,12 @@
 
       const currentProj = getCurrentProject();
       const projName = currentProj ? currentProj.name : proj;
-      document.getElementById('view-title').textContent = `${projName} - Sprint 1`;
+      state.activeSprintId = localStorage.getItem('jira_active_sprint_' + proj) || 'SPRINT-1';
 
       updateSidebarProject();
       saveState();
       populateAssigneeDropdowns();
+      populateSprintDropdowns();
       loadDataFromCloudflare();
       showToast(`Pindah ke project: ${projName}`, 'info');
     }
@@ -3869,6 +4330,7 @@
 
       populateProjectSelector();
       populateAssigneeDropdowns();
+      populateSprintDropdowns();
       updateRoleUI();
 
       renderEpicPills();
@@ -3916,9 +4378,28 @@
       const container = document.getElementById('swimlane-rows');
       container.innerHTML = '';
 
+      const activeSprint = getActiveSprint();
+      const activeId = activeSprint ? activeSprint.id : 'SPRINT-1';
+
+      // Update date badge
+      const dateBadge = document.getElementById('sprint-date-badge');
+      if (dateBadge) {
+        if (activeSprint.startDate && activeSprint.endDate) {
+          dateBadge.textContent = `📅 ${activeSprint.startDate} - ${activeSprint.endDate}`;
+        } else {
+          dateBadge.textContent = `📅 ${activeSprint.name}`;
+        }
+      }
+
+      // Update board sprint select if needed
+      const boardSprintSel = document.getElementById('board-sprint-select');
+      if (boardSprintSel && boardSprintSel.value !== activeId) {
+        boardSprintSel.value = activeId;
+      }
+
       let list = currentIssues;
       if (state.view === 'scrum') {
-        list = list.filter(i => (i.sprint || 'SPRINT-1') === 'SPRINT-1');
+        list = list.filter(i => (i.sprint || 'SPRINT-1') === activeId);
       }
 
       if (state.roleFilter !== 'ALL') list = list.filter(i => i.role === state.roleFilter);
@@ -4188,17 +4669,27 @@
 
     // ================= BACKLOG VIEW =================
     function renderBacklog(currentIssues) {
-      const activeList = document.getElementById('backlog-sprint-list');
+      const sprintsContainer = document.getElementById('backlog-sprints-container');
       const backlogList = document.getElementById('backlog-product-list');
 
-      const sprintIssues = currentIssues.filter(i => (i.sprint || 'SPRINT-1') === 'SPRINT-1');
+      const sprints = getProjectSprints();
+      const activeSprint = getActiveSprint();
       const productIssues = currentIssues.filter(i => i.sprint === 'BACKLOG');
 
-      document.getElementById('active-sprint-count').textContent = `${sprintIssues.length} task`;
-      document.getElementById('backlog-count').textContent = `${productIssues.length} task`;
+      const backlogCountEl = document.getElementById('backlog-count');
+      if (backlogCountEl) backlogCountEl.textContent = `${productIssues.length} task`;
 
-      function renderBacklogRow(issue, canMoveTo) {
+      function renderBacklogRow(issue, currentSprintId) {
         const epic = state.epics.find(e => e.id === issue.epicId);
+        
+        // Build destination sprint options
+        const moveOptions = [
+          ...sprints.filter(s => s.id !== currentSprintId).map(s => `
+            <option value="${s.id}">➡ ${escapeHtml(s.name)}</option>
+          `),
+          currentSprintId !== 'BACKLOG' ? '<option value="BACKLOG">➡ Product Backlog</option>' : ''
+        ].filter(Boolean).join('');
+
         return `
           <div class="p-3 bg-white hover:bg-gray-50 flex items-center justify-between gap-3 text-xs cursor-pointer rounded-xl transition" onclick="openDetailModal('${issue.id}')">
             <div class="flex items-center gap-2.5 min-w-0">
@@ -4206,26 +4697,88 @@
               ${epic ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-md border ${getEpicColorClasses(epic.color)}">🟣 ${escapeHtml(epic.name)}</span>` : ''}
               <span class="text-gray-900 font-bold truncate">${escapeHtml(issue.summary)}</span>
             </div>
-            <div class="flex items-center gap-3 shrink-0">
+            <div class="flex items-center gap-2.5 shrink-0" onclick="event.stopPropagation()">
               <span class="text-[11px] font-bold uppercase text-[#0c66e4] bg-blue-50 px-2 py-0.5 rounded-md">${issue.status.replace('_', ' ')}</span>
-              <button onclick="event.stopPropagation(); moveSprint('${issue.id}', '${canMoveTo}')" class="px-2.5 py-1 text-[11px] font-bold border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-700 transition">
-                ${canMoveTo === 'SPRINT-1' ? '⬆ Pindah ke Sprint' : '⬇ Pindah ke Backlog'}
-              </button>
+              <div class="flex items-center gap-1">
+                <span class="text-[10px] text-gray-400 font-bold uppercase">Pindah:</span>
+                <select onchange="moveSprint('${issue.id}', this.value)" class="text-[11px] font-bold border border-gray-200 rounded-lg px-2 py-1 bg-white hover:bg-gray-50 text-gray-700 focus:outline-none focus:border-blue-500 cursor-pointer">
+                  <option value="" disabled selected>Pilih...</option>
+                  ${moveOptions}
+                </select>
+              </div>
             </div>
           </div>
         `;
       }
 
-      activeList.innerHTML = sprintIssues.map(i => renderBacklogRow(i, 'BACKLOG')).join('') || '<p class="text-xs text-gray-400 p-3 italic">Sprint kosong.</p>';
-      backlogList.innerHTML = productIssues.map(i => renderBacklogRow(i, 'SPRINT-1')).join('') || '<p class="text-xs text-gray-400 p-3 italic">Backlog kosong.</p>';
+      if (sprintsContainer) {
+        sprintsContainer.innerHTML = sprints.map(s => {
+          const isActive = (s.id === activeSprint.id);
+          const sIssues = currentIssues.filter(i => (i.sprint || 'SPRINT-1') === s.id);
+          const unfinishedCount = sIssues.filter(i => i.status !== 'done' && i.status !== 'closed').length;
+
+          const headerBg = isActive ? 'bg-blue-50/70 border-b border-blue-100' : 'bg-gray-50/80 border-b border-gray-200';
+          const badgeClass = isActive ? 'bg-blue-100 text-blue-800 border-blue-200' : 'bg-gray-200 text-gray-700 border-gray-300';
+          const iconColor = isActive ? 'text-blue-600' : 'text-gray-500';
+
+          return `
+            <div class="bg-white rounded-2xl border ${isActive ? 'border-blue-200 shadow-sm' : 'border-gray-200/80'} shadow-xs overflow-hidden">
+              <div class="px-5 py-3.5 ${headerBg} flex items-center justify-between flex-wrap gap-2.5">
+                <div class="flex items-center gap-2.5 flex-wrap">
+                  <i data-lucide="${isActive ? 'play-circle' : 'calendar'}" class="w-4 h-4 ${iconColor}"></i>
+                  <h3 class="font-bold text-sm text-gray-900">${escapeHtml(s.name)} ${s.goal ? `<span class="text-xs font-medium text-gray-500">(${escapeHtml(s.goal)})</span>` : ''}</h3>
+                  <span class="text-xs px-2 py-0.5 rounded-full font-bold border ${badgeClass}">
+                    ${isActive ? 'Sprint Aktif' : 'Sprint Terencana'}
+                  </span>
+                  <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">
+                    ${sIssues.length} task ${unfinishedCount > 0 ? `(${unfinishedCount} belum selesai)` : ''}
+                  </span>
+                  ${s.startDate && s.endDate ? `<span class="text-[11px] text-gray-500 font-medium">📅 ${s.startDate} - ${s.endDate}</span>` : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                  ${!isActive ? `
+                    <button onclick="changeBoardSprint('${s.id}')" class="px-2.5 py-1 text-xs font-bold bg-white hover:bg-blue-50 border border-blue-200 text-blue-700 rounded-lg shadow-2xs transition">
+                      Aktifkan di Board
+                    </button>
+                  ` : `
+                    <button onclick="switchView('scrum')" class="text-xs font-bold text-blue-700 hover:underline">
+                      Buka di Board →
+                    </button>
+                  `}
+                  ${unfinishedCount > 0 ? `
+                    <button onclick="openMoveUnfinishedTasksModal('${s.id}')" class="px-2.5 py-1 text-xs font-bold bg-white hover:bg-amber-50 border border-amber-200 text-amber-800 rounded-lg shadow-2xs transition flex items-center gap-1" title="Pindahkan task yang belum selesai ke sprint lain">
+                      <i data-lucide="arrow-right-left" class="w-3 h-3 text-amber-600"></i>
+                      <span>Pindah ${unfinishedCount} Task Sisa</span>
+                    </button>
+                  ` : ''}
+                  <button onclick="openCreateModal('todo', '${s.id}')" class="px-2.5 py-1 text-xs font-bold bg-white hover:bg-gray-100 border border-gray-200 text-gray-700 rounded-lg shadow-2xs transition flex items-center gap-1">
+                    <i data-lucide="plus" class="w-3 h-3"></i> Tambah Task
+                  </button>
+                </div>
+              </div>
+              <div class="divide-y divide-gray-100 p-2 space-y-1">
+                ${sIssues.map(i => renderBacklogRow(i, s.id)).join('') || '<p class="text-xs text-gray-400 p-3 italic">Sprint ini belum memiliki task.</p>'}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      if (backlogList) {
+        backlogList.innerHTML = productIssues.map(i => renderBacklogRow(i, 'BACKLOG')).join('') || '<p class="text-xs text-gray-400 p-3 italic">Backlog kosong.</p>';
+      }
+
+      if (window.lucide) lucide.createIcons();
     }
 
     function moveSprint(id, targetSprint) {
+      if (!targetSprint) return;
       const issue = state.issues.find(i => i.id === id);
       if (issue) {
         issue.sprint = targetSprint;
         saveState();
         syncIssueToD1(issue);
+        showToast(`Task ${id} dipindahkan ke ${targetSprint}`, 'info');
       }
     }
 
@@ -4269,14 +4822,18 @@
     }
 
     // ================= MODALS & ACTIONS =================
-    function openCreateModal(status = 'todo', sprint = 'SPRINT-1', epicId = '', defaultRole = '', defaultPriority = '') {
+    function openCreateModal(status = 'todo', sprint = null, epicId = '', defaultRole = '', defaultPriority = '') {
       populateAssigneeDropdowns();
       populateEpicDropdowns();
+      populateSprintDropdowns();
+
+      const activeSprint = getActiveSprint();
+      const targetSprint = sprint || (activeSprint ? activeSprint.id : 'SPRINT-1');
 
       const statusEl = document.getElementById('issue-status');
       if (statusEl) statusEl.value = status;
       const sprintEl = document.getElementById('issue-sprint');
-      if (sprintEl) sprintEl.value = sprint;
+      if (sprintEl) sprintEl.value = targetSprint;
       const epicEl = document.getElementById('issue-epic');
       if (epicId && epicEl) epicEl.value = epicId;
       const roleEl = document.getElementById('issue-role');
@@ -4361,7 +4918,19 @@
       document.getElementById('detail-epic').value = issue.epicId || '';
       document.getElementById('detail-role').value = issue.role || 'QC';
       document.getElementById('detail-priority').value = issue.priority;
-      document.getElementById('detail-sprint').value = issue.sprint || 'SPRINT-1';
+
+      populateSprintDropdowns();
+      const detailSprintEl = document.getElementById('detail-sprint');
+      if (detailSprintEl) {
+        if (issue.sprint && ![...detailSprintEl.options].some(o => o.value === issue.sprint)) {
+          const opt = document.createElement('option');
+          opt.value = issue.sprint;
+          opt.textContent = `${issue.sprint}`;
+          detailSprintEl.appendChild(opt);
+        }
+        detailSprintEl.value = issue.sprint || 'SPRINT-1';
+      }
+
       const detailAssigneeEl = document.getElementById('detail-assignee');
       if (detailAssigneeEl) {
         if (issue.assignee && ![...detailAssigneeEl.options].some(o => o.value === issue.assignee)) {
@@ -5910,7 +6479,9 @@
 
       let items = state.issues.filter(i => (i.project || 'PINSP') === state.project);
       if (scope === 'sprint') {
-        items = items.filter(i => (i.sprint || 'SPRINT-1') === 'SPRINT-1');
+        const activeSprint = getActiveSprint();
+        const activeId = activeSprint ? activeSprint.id : 'SPRINT-1';
+        items = items.filter(i => (i.sprint || 'SPRINT-1') === activeId);
       } else if (scope === 'qc') {
         items = items.filter(i => i.role === 'QC');
       } else if (scope === 'ba') {

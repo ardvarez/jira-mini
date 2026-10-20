@@ -484,6 +484,7 @@ async function ensureUsersTable(db) {
     // Auto-seed existing baseline users into database
     const baselineUsers = [
       ['ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'],
+      ['banyurizkika@gmail.com', 'Banyu Rizkika', 'PM', ''],
       ['bagus@pln.co.id', 'Bagus', 'DEV', ''],
       ['qc@pln.co.id', 'QC Specialist', 'QC', ''],
       ['ba@pln.co.id', 'BA Analyst', 'BA', '']
