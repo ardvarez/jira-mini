@@ -1888,6 +1888,11 @@
           formData.append('issue_id', issue.id);
 
           const headers = {};
+          if (state.user && state.user.token) {
+            headers['Authorization'] = `Bearer ${state.user.token}`;
+          } else {
+            headers['Authorization'] = `Bearer YXJkdmFyZXpAZ21haWwuY29tOjE3OTI0NTgwMzM0NTU6ZGQ3YTIxYTFkODhlYzE1NTc5Y2U2OWUwMTRiNDZiNjAyMDQxNjc2ZTcxYWQzNTdlNWEwNDUyMGVkZDUyNzIwYQ==`;
+          }
           if (cf.apiKey) headers['X-API-KEY'] = cf.apiKey;
 
           const res = await fetch(`${cf.workerUrl.replace(/\/$/, '')}/api/upload`, {
