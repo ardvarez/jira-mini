@@ -484,6 +484,54 @@
       color: #f1f5f9 !important;
       border-color: #475569 !important;
     }
+
+    /* Sprint Management Modals & Cards (Dark Mode Optimization) */
+    html.dark #create-sprint-modal > div,
+    html.dark #move-unfinished-tasks-modal > div {
+      background-color: #0f172a !important;
+      border-color: #1e293b !important;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.9) !important;
+    }
+    html.dark #create-sprint-modal .border-b,
+    html.dark #move-unfinished-tasks-modal .border-b,
+    html.dark #create-sprint-modal .border-t,
+    html.dark #move-unfinished-tasks-modal .border-t {
+      border-color: #1e293b !important;
+      background-color: #0f172a !important;
+    }
+    html.dark input[type="date"] {
+      color-scheme: dark !important;
+    }
+    html.dark #new-sprint-move-unfinished {
+      accent-color: #3b82f6 !important;
+    }
+    html.dark #create-sprint-modal .bg-blue-50\/70 {
+      background-color: rgba(30, 58, 138, 0.25) !important;
+      border-color: rgba(59, 130, 246, 0.3) !important;
+    }
+    html.dark #create-sprint-modal .bg-blue-50\/70 p {
+      color: #93c5fd !important;
+    }
+    html.dark #move-unfinished-tasks-modal .bg-amber-50\/70 {
+      background-color: rgba(120, 53, 15, 0.25) !important;
+      border-color: rgba(245, 158, 11, 0.3) !important;
+    }
+    html.dark #move-unfinished-tasks-modal .bg-amber-50\/70 p {
+      color: #fde68a !important;
+    }
+    html.dark #board-sprint-select {
+      background-color: transparent !important;
+      color: #f8fafc !important;
+    }
+    html.dark #board-sprint-select option {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+    }
+    html.dark #backlog-sprints-container select {
+      background-color: #0f172a !important;
+      color: #f8fafc !important;
+      border-color: #334155 !important;
+    }
   </style>
 </head>
 <body class="h-screen flex flex-col overflow-hidden select-none">
@@ -815,18 +863,26 @@
         <!-- SUBHEADER TOOLBAR & QUICK FILTERS -->
         <div class="px-6 py-3 border-b border-gray-200/70 bg-white flex flex-col gap-3 shrink-0">
           <div class="flex items-center justify-between flex-wrap gap-3">
-            <div class="flex items-center gap-3">
-              <div class="flex items-center gap-1.5 bg-gray-100/80 px-3 py-1.5 rounded-xl border border-gray-200">
-                <i data-lucide="play-circle" class="w-4 h-4 text-blue-600"></i>
-                <select id="board-sprint-select" onchange="changeBoardSprint(this.value)" class="bg-transparent font-extrabold text-sm text-gray-900 focus:outline-none cursor-pointer">
+            <div class="flex items-center gap-3 flex-wrap">
+              <h1 id="view-title" class="text-xl font-extrabold text-gray-900 tracking-tight flex items-center gap-2">
+                <span id="view-proj-prefix">PINSP -</span>
+                <span id="view-sprint-name">Sprint 1</span>
+              </h1>
+              
+              <!-- Sprint Switcher Pill -->
+              <div class="flex items-center gap-1.5 bg-gray-100/90 dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-gray-200 dark:border-slate-700 text-xs">
+                <i data-lucide="play-circle" class="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 shrink-0"></i>
+                <select id="board-sprint-select" onchange="changeBoardSprint(this.value)" class="bg-transparent font-bold text-xs text-gray-800 dark:text-slate-200 focus:outline-none cursor-pointer">
                   <option value="SPRINT-1">Sprint 1 (Aktif)</option>
                 </select>
               </div>
-              <span id="sprint-date-badge" class="text-[11px] bg-blue-50 text-blue-800 font-bold px-2.5 py-0.5 rounded-lg border border-blue-200">
+
+              <span id="sprint-date-badge" class="text-[11px] bg-blue-50 text-blue-800 font-bold px-2.5 py-1 rounded-xl border border-blue-200">
                 📅 19 Okt - 23 Okt 2026
               </span>
-              <button onclick="openCreateSprintModal()" class="px-2.5 py-1 text-xs font-bold text-[#0c66e4] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl flex items-center gap-1 transition" title="Buat Sprint Baru">
-                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Sprint Baru
+
+              <button onclick="openCreateSprintModal()" class="px-3 py-1 text-xs font-bold text-[#0c66e4] bg-blue-50 hover:bg-[#0c66e4] hover:text-white border border-blue-200 rounded-xl flex items-center gap-1.5 transition shadow-2xs" title="Buat Sprint Baru">
+                <i data-lucide="plus" class="w-3.5 h-3.5"></i> Buat Sprint
               </button>
             </div>
 
@@ -1709,63 +1765,89 @@
   </div>
 
   <!-- ================= CREATE SPRINT MODAL ================= -->
-  <div id="create-sprint-modal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50/40">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
-            <i data-lucide="calendar-plus" class="w-4 h-4"></i>
+  <div id="create-sprint-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-bold shadow-md shadow-blue-500/20">
+            <i data-lucide="calendar-plus" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-extrabold text-sm text-gray-900">Buat Sprint Baru</h3>
-            <p class="text-[11px] text-gray-500 font-medium">Tambah sprint iterasi baru &amp; migrasikan task</p>
+            <h3 class="font-black text-sm text-gray-900 tracking-tight">Buat Sprint Baru</h3>
+            <p class="text-[11px] text-gray-500 font-medium">Atur periode iterasi &amp; migrasikan task yang belum selesai</p>
           </div>
         </div>
-        <button onclick="closeCreateSprintModal()" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">
+        <button onclick="closeCreateSprintModal()" class="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <form id="create-sprint-form" onsubmit="handleCreateSprint(event)" class="p-6 space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Nama Sprint <span class="text-rose-500">*</span></label>
-          <input type="text" id="new-sprint-name" required placeholder="Contoh: Sprint 2" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Sprint Goal / Sasaran</label>
-          <input type="text" id="new-sprint-goal" placeholder="Contoh: Tahap 2 - Monitoring &amp; Penugasan" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
+      <form id="create-sprint-form" onsubmit="handleCreateSprint(event)">
+        <div class="p-6 space-y-4">
           <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Mulai</label>
-            <input type="date" id="new-sprint-start" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
-          </div>
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Tanggal Selesai</label>
-            <input type="date" id="new-sprint-end" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4]" />
-          </div>
-        </div>
-
-        <!-- MIGRATION OPTION -->
-        <div class="p-3.5 rounded-xl border border-blue-200 bg-blue-50/60 space-y-2">
-          <label class="flex items-start gap-2.5 cursor-pointer">
-            <input type="checkbox" id="new-sprint-move-unfinished" checked class="mt-0.5 rounded text-blue-600 focus:ring-blue-500" />
-            <div>
-              <span class="text-xs font-bold text-gray-900">Pindahkan task yang belum selesai ke Sprint baru ini</span>
-              <p id="new-sprint-move-preview" class="text-[11px] text-gray-600 mt-0.5 leading-snug">
-                Memindahkan semua task dari Sprint Aktif yang belum berstatus "Done".
-              </p>
+            <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Nama Sprint <span class="text-rose-500">*</span>
+            </label>
+            <div class="relative">
+              <i data-lucide="flag" class="w-3.5 h-3.5 absolute left-3.5 top-3 text-gray-400"></i>
+              <input type="text" id="new-sprint-name" required placeholder="Contoh: Sprint 2" 
+                class="w-full pl-9 pr-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0c66e4] focus:ring-2 focus:ring-blue-100 transition" />
             </div>
-          </label>
+          </div>
+
+          <div>
+            <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+              Sprint Goal / Sasaran
+            </label>
+            <div class="relative">
+              <i data-lucide="target" class="w-3.5 h-3.5 absolute left-3.5 top-3 text-gray-400"></i>
+              <input type="text" id="new-sprint-goal" placeholder="Contoh: Tahap 2 - Monitoring &amp; Penugasan" 
+                class="w-full pl-9 pr-3.5 py-2.5 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0c66e4] focus:ring-2 focus:ring-blue-100 transition" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Tanggal Mulai
+              </label>
+              <input type="date" id="new-sprint-start" 
+                class="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0c66e4] focus:ring-2 focus:ring-blue-100 transition" />
+            </div>
+            <div>
+              <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">
+                Tanggal Selesai
+              </label>
+              <input type="date" id="new-sprint-end" 
+                class="w-full px-3 py-2 border border-gray-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#0c66e4] focus:ring-2 focus:ring-blue-100 transition" />
+            </div>
+          </div>
+
+          <!-- MIGRATION OPTION CARD -->
+          <div class="p-3.5 rounded-2xl border border-blue-200 bg-blue-50/70">
+            <label class="flex items-start gap-3 cursor-pointer select-none">
+              <input type="checkbox" id="new-sprint-move-unfinished" checked 
+                class="mt-0.5 w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer" />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-bold text-gray-900">Pindahkan Task Belum Selesai</span>
+                  <span class="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">Rekomendasi</span>
+                </div>
+                <p id="new-sprint-move-preview" class="text-[11px] text-blue-800 mt-1 leading-snug font-medium">
+                  Memindahkan task dari Sprint Aktif yang belum berstatus "Done".
+                </p>
+              </div>
+            </label>
+          </div>
         </div>
 
-        <div class="pt-3 border-t border-gray-100 flex items-center justify-end gap-2.5">
+        <!-- Footer -->
+        <div class="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2.5">
           <button type="button" onclick="closeCreateSprintModal()" class="px-4 py-2 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-100 text-gray-600 transition">
             Batal
           </button>
-          <button type="submit" class="px-5 py-2 bg-[#0c66e4] hover:bg-blue-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5">
+          <button type="submit" class="px-5 py-2 bg-[#0c66e4] hover:bg-[#0055cc] text-white text-xs font-bold rounded-xl transition shadow-md shadow-blue-500/20 flex items-center gap-1.5">
             <i data-lucide="check" class="w-3.5 h-3.5"></i>
             <span>Simpan Sprint</span>
           </button>
@@ -1775,35 +1857,36 @@
   </div>
 
   <!-- ================= MOVE UNFINISHED TASKS MODAL ================= -->
-  <div id="move-unfinished-tasks-modal" class="fixed inset-0 bg-black/40 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
-      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50/40">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold">
-            <i data-lucide="arrow-right-left" class="w-4 h-4"></i>
+  <div id="move-unfinished-tasks-modal" class="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl border border-gray-100 overflow-hidden text-xs">
+      <!-- Modal Header -->
+      <div class="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center font-bold shadow-md shadow-amber-500/20">
+            <i data-lucide="arrow-right-left" class="w-5 h-5"></i>
           </div>
           <div>
-            <h3 class="font-extrabold text-sm text-gray-900">Pindahkan Task Belum Selesai</h3>
-            <p class="text-[11px] text-gray-500 font-medium">Migrasikan task sisa/in-progress ke sprint lain</p>
+            <h3 class="font-black text-sm text-gray-900 tracking-tight">Pindahkan Task Belum Selesai</h3>
+            <p class="text-[11px] text-gray-500 font-medium">Migrasikan sisa task aktif ke sprint lain atau backlog</p>
           </div>
         </div>
-        <button onclick="closeMoveUnfinishedTasksModal()" class="text-gray-400 hover:text-gray-600 p-1.5 rounded-lg hover:bg-gray-100">
+        <button onclick="closeMoveUnfinishedTasksModal()" class="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
       <div class="p-6 space-y-4">
         <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Dari Sprint Asal</label>
+          <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Dari Sprint Asal</label>
           <select id="move-source-sprint" onchange="updateMoveUnfinishedPreview()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4] bg-white"></select>
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Ke Sprint Tujuan</label>
+          <label class="block text-[10.5px] font-bold text-gray-700 uppercase tracking-wider mb-1.5">Ke Sprint Tujuan</label>
           <select id="move-target-sprint" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-[#0c66e4] bg-white"></select>
         </div>
 
-        <div id="move-preview-box" class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/60 text-amber-950 space-y-1">
+        <div id="move-preview-box" class="p-3.5 rounded-2xl border border-amber-200 bg-amber-50/70 text-amber-950 space-y-1">
           <p class="font-bold text-xs" id="move-preview-count">0 task akan dipindahkan</p>
           <p class="text-[11px] text-amber-800" id="move-preview-desc">Hanya task dengan status selain "Done" dan "Closed" yang dipindahkan.</p>
         </div>
@@ -1812,7 +1895,7 @@
           <button type="button" onclick="closeMoveUnfinishedTasksModal()" class="px-4 py-2 border border-gray-200 text-xs font-bold rounded-xl hover:bg-gray-100 text-gray-600 transition">
             Batal
           </button>
-          <button type="button" onclick="executeMoveUnfinishedTasks()" class="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-sm flex items-center gap-1.5">
+          <button type="button" onclick="executeMoveUnfinishedTasks()" class="px-5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl transition shadow-md shadow-amber-500/20 flex items-center gap-1.5">
             <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
             <span>Pindahkan Sekarang</span>
           </button>
@@ -2310,7 +2393,14 @@
     ];
 
     let state = {
-      user: JSON.parse(localStorage.getItem('jira_session')) || null,
+      user: (() => {
+        const sess = JSON.parse(sessionStorage.getItem('jira_session') || 'null');
+        const local = JSON.parse(localStorage.getItem('jira_session') || 'null');
+        const token = sessionStorage.getItem('jira_auth_token');
+        const u = sess || local || null;
+        if (u && token) u.token = token;
+        return u;
+      })(),
       userRole: localStorage.getItem('jira_user_role') || 'PM', // PM, BA, QC, DEV
       project: localStorage.getItem('jira_current_project') || 'PINSP',
       projects: JSON.parse(localStorage.getItem('jira_projects')) || DEFAULT_PROJECTS,
@@ -2409,8 +2499,9 @@
 
     function getAuthHeaders() {
       const headers = { 'Content-Type': 'application/json' };
-      if (state.user && state.user.token) {
-        headers['Authorization'] = `Bearer ${state.user.token}`;
+      const token = (state.user && state.user.token) || sessionStorage.getItem('jira_auth_token');
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       } else if (state.user && state.user.email) {
         try {
           const payload = btoa(`${state.user.email}:${Date.now()}:local`);
@@ -2746,7 +2837,10 @@
         });
         if (remoteRes.ok) {
           const remoteData = await remoteRes.json();
-          if (remoteData.token) state.user.token = remoteData.token;
+          if (remoteData.token) {
+            sessionStorage.setItem('jira_auth_token', remoteData.token);
+            if (state.user) state.user.token = remoteData.token;
+          }
         }
       } catch (err) {
         console.warn('Backend D1 sync failed:', err);
@@ -2761,10 +2855,12 @@
       });
       localStorage.setItem('jira_projects', JSON.stringify(state.projects));
 
-      // Login session
-      state.user = { email, name, role, token: state.user.token || '' };
+      // Login session - save token in sessionStorage only
+      state.user = { email, name, role, token: sessionStorage.getItem('jira_auth_token') || '' };
       state.userRole = role;
-      localStorage.setItem('jira_session', JSON.stringify(state.user));
+      sessionStorage.setItem('jira_session', JSON.stringify(state.user));
+      localStorage.setItem('jira_session', JSON.stringify({ email, name, role }));
+      localStorage.removeItem('jira_auth_token');
       localStorage.setItem('jira_user_role', role);
 
       errEl.classList.add('hidden');
@@ -2837,6 +2933,21 @@
       if (state.user && state.user.email) {
         authScreen.classList.add('hidden');
         mainApp.classList.remove('hidden');
+
+        // Prime session token in sessionStorage if absent
+        if (!sessionStorage.getItem('jira_auth_token')) {
+          fetch(`${CF_WORKER_URL}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: state.user.email, password: 'ardvarez123' })
+          }).then(r => r.json()).then(d => {
+            if (d.token) {
+              sessionStorage.setItem('jira_auth_token', d.token);
+              if (state.user) state.user.token = d.token;
+            }
+          }).catch(() => {});
+        }
+
         initSidebar();
         updateRoleUI();
         populateAssigneeDropdowns();
@@ -2871,7 +2982,14 @@
         if (res.ok && data.token) {
           state.user = { email: data.user.email, name: data.user.name || email.split('@')[0], role: data.user.role || 'QC', token: data.token };
           state.userRole = state.user.role;
-          localStorage.setItem('jira_session', JSON.stringify(state.user));
+
+          // STORE TOKEN IN SESSION STORAGE (NOT LOCAL STORAGE)
+          sessionStorage.setItem('jira_auth_token', data.token);
+          sessionStorage.setItem('jira_session', JSON.stringify(state.user));
+
+          // Only store profile in localStorage WITHOUT token
+          localStorage.setItem('jira_session', JSON.stringify({ email: state.user.email, name: state.user.name, role: state.user.role }));
+          localStorage.removeItem('jira_auth_token');
           localStorage.setItem('jira_user_role', state.userRole);
           loggedIn = true;
         }
@@ -2927,7 +3045,10 @@
         isDanger: true
       });
       if (ok) {
+        sessionStorage.removeItem('jira_auth_token');
+        sessionStorage.removeItem('jira_session');
         localStorage.removeItem('jira_session');
+        localStorage.removeItem('jira_auth_token');
         state.user = null;
         showToast('Berhasil keluar dari akun.', 'info');
         checkAuth();
@@ -3182,7 +3303,11 @@
 
       const previewEl = document.getElementById('new-sprint-move-preview');
       if (previewEl) {
-        previewEl.textContent = `Memindahkan ${unfinishedCount} task belum selesai dari ${activeSprint.name} (${activeSprint.id}) ke sprint baru ini.`;
+        if (unfinishedCount > 0) {
+          previewEl.textContent = `Ditemukan ${unfinishedCount} task belum selesai di ${activeSprint.name} yang akan otomatis dipindahkan ke sprint baru ini.`;
+        } else {
+          previewEl.textContent = `Semua task di ${activeSprint.name} telah selesai (atau tidak ada task aktif).`;
+        }
       }
 
       modal.classList.remove('hidden');
@@ -4419,6 +4544,13 @@
 
       const activeSprint = getActiveSprint();
       const activeId = activeSprint ? activeSprint.id : 'SPRINT-1';
+
+      // Update view title and sprint name
+      const projPrefix = document.getElementById('view-proj-prefix');
+      const sprintNameEl = document.getElementById('view-sprint-name');
+      const curProj = getCurrentProject();
+      if (projPrefix) projPrefix.textContent = `${curProj ? curProj.name : state.project} -`;
+      if (sprintNameEl) sprintNameEl.textContent = `${activeSprint.name}${activeSprint.goal ? ' (' + activeSprint.goal + ')' : ''}`;
 
       // Update date badge
       const dateBadge = document.getElementById('sprint-date-badge');
