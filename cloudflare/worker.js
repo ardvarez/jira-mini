@@ -71,6 +71,24 @@ export default {
       }
     }
 
+    // Register Endpoint: /api/auth/register
+    if (url.pathname === '/api/auth/register' && request.method === 'POST') {
+      try {
+        const { name, email, role, password } = await request.json();
+        if (!email || !password || !name) {
+          return jsonResponse({ error: 'Name, email and password are required' }, 400, corsHeaders);
+        }
+        const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
+        return jsonResponse({
+          success: true,
+          token: token,
+          user: { name, email, role: role || 'QC' }
+        }, 200, corsHeaders);
+      } catch (e) {
+        return jsonResponse({ error: 'Malformed request' }, 400, corsHeaders);
+      }
+    }
+
     // 3. MANDATORY AUTH CHECK ON ALL OTHER API ENDPOINTS
     if (url.pathname.startsWith('/api/')) {
       const authHeader = request.headers.get('Authorization') || '';

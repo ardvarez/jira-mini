@@ -18,9 +18,24 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(PUBLIC_DIR, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+  const reqPath = req.url === '/' ? 'index.html' : req.url.split('?')[0];
+  const filePath = path.normalize(path.join(PUBLIC_DIR, reqPath));
+
+  // Security: Prevent path traversal outside PUBLIC_DIR
+  if (!filePath.startsWith(PUBLIC_DIR)) {
+    res.writeHead(403, { 'Content-Type': 'text/plain; charset=UTF-8' });
+    res.end('403 Forbidden: Access denied.');
+    return;
+  }
+
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+
+  const securityHeaders = {
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'SAMEORIGIN',
+    'Referrer-Policy': 'strict-origin-when-cross-origin'
+  };
 
   fs.readFile(filePath, (err, content) => {
     if (err) {
@@ -28,19 +43,19 @@ const server = http.createServer((req, res) => {
         // Fallback to index.html for SPA routes
         fs.readFile(path.join(PUBLIC_DIR, 'index.html'), (fallbackErr, fallbackContent) => {
           if (fallbackErr) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=UTF-8', ...securityHeaders });
             res.end('404 Not Found');
           } else {
-            res.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8' });
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=UTF-8', ...securityHeaders });
             res.end(fallbackContent);
           }
         });
       } else {
-        res.writeHead(500, { 'Content-Type': 'text/plain' });
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=UTF-8', ...securityHeaders });
         res.end(`Server Error: ${err.code}`);
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 'Content-Type': contentType, ...securityHeaders });
       res.end(content);
     }
   });
