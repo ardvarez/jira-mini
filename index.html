@@ -2459,19 +2459,44 @@
     }
 
     function getRegisteredUsers() {
-      const defaultUsers = [
+      const baselineUsers = [
         {
           name: 'Ardan',
           email: 'ardvarez@gmail.com',
           role: 'PM',
           hash: 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'
+        },
+        {
+          name: 'Bagus',
+          email: 'bagus@pln.co.id',
+          role: 'DEV',
+          hash: ''
+        },
+        {
+          name: 'QC Specialist',
+          email: 'qc@pln.co.id',
+          role: 'QC',
+          hash: ''
+        },
+        {
+          name: 'BA Analyst',
+          email: 'ba@pln.co.id',
+          role: 'BA',
+          hash: ''
         }
       ];
       try {
         const stored = localStorage.getItem('jira_registered_users');
-        return stored ? JSON.parse(stored) : defaultUsers;
+        if (!stored) return baselineUsers;
+        const users = JSON.parse(stored);
+        baselineUsers.forEach(bu => {
+          if (!users.some(u => u.email.toLowerCase() === bu.email.toLowerCase())) {
+            users.push(bu);
+          }
+        });
+        return users;
       } catch (e) {
-        return defaultUsers;
+        return baselineUsers;
       }
     }
 

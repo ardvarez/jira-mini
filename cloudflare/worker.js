@@ -480,6 +480,22 @@ async function ensureUsersTable(db) {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `).run();
+
+    // Auto-seed existing baseline users into database
+    const baselineUsers = [
+      ['ardvarez@gmail.com', 'Ardan', 'PM', 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a'],
+      ['bagus@pln.co.id', 'Bagus', 'DEV', ''],
+      ['qc@pln.co.id', 'QC Specialist', 'QC', ''],
+      ['ba@pln.co.id', 'BA Analyst', 'BA', '']
+    ];
+
+    for (const [email, name, role, hash] of baselineUsers) {
+      await db.prepare(`
+        INSERT INTO users (email, name, role, password_hash, created_at)
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(email) DO NOTHING
+      `).bind(email, name, role, hash).run();
+    }
   } catch (e) {
     console.error('Failed to ensure users table:', e);
   }
