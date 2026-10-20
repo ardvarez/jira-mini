@@ -63,11 +63,9 @@
             type="password" 
             id="login-password" 
             required 
-            value="ardvarez123"
-            placeholder="Enter password"
+            placeholder="Enter your password"
             class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-[#4c9aff] focus:ring-2 focus:ring-[#deebff]"
           />
-          <p class="text-[11px] text-gray-500 mt-1">Default password: <code class="font-bold text-blue-700">ardvarez123</code></p>
         </div>
 
         <div id="login-error" class="hidden text-xs text-red-600 bg-red-50 p-2 rounded font-medium"></div>
@@ -939,21 +937,69 @@
       }
     }
 
-    function handleLogin(e) {
+    async function handleLogin(e) {
       e.preventDefault();
       const email = document.getElementById('login-email').value.trim();
       const pass = document.getElementById('login-password').value.trim();
       const errEl = document.getElementById('login-error');
+      const submitBtn = e.target.querySelector('button[type="submit"]');
 
-      if (email.toLowerCase() === 'ardvarez@gmail.com' && pass === 'ardvarez123') {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Verifying security...';
+
+      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
+
+      // 1. IF CLOUDFLARE WORKER CONFIGURED -> AUTHENTICATE WITH SERVER
+      if (cf.workerUrl) {
+        try {
+          const res = await fetch(`${cf.workerUrl.replace(/\/$/, '')}/api/auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password: pass })
+          });
+          const data = await res.json();
+          if (res.ok && data.token) {
+            state.user = { email: data.user.email, role: data.user.role, token: data.token };
+            localStorage.setItem('jira_session', JSON.stringify(state.user));
+            errEl.classList.add('hidden');
+            checkAuth();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Log in';
+            return;
+          } else {
+            throw new Error(data.error || 'Invalid credentials');
+          }
+        } catch (err) {
+          errEl.textContent = err.message || 'Login verification failed.';
+          errEl.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Log in';
+          return;
+        }
+      }
+
+      // 2. LOCAL SECURE HASH CHECK (Salted SHA-256 - No Plaintext in Code)
+      const inputHash = await sha256(`jira_salt_2026_${pass}`);
+      const targetHash = "e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a";
+
+      if (email.toLowerCase() === 'ardvarez@gmail.com' && inputHash === targetHash) {
         state.user = { email: 'ardvarez@gmail.com', name: 'Ardan (BA & QC Lead)', role: 'BA & QC Lead' };
         localStorage.setItem('jira_session', JSON.stringify(state.user));
         errEl.classList.add('hidden');
         checkAuth();
       } else {
-        errEl.textContent = 'Invalid credentials. Please use ardvarez@gmail.com / ardvarez123';
+        errEl.textContent = 'Invalid credentials or unauthorized user.';
         errEl.classList.remove('hidden');
       }
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Log in';
+    }
+
+    async function sha256(message) {
+      const msgBuffer = new TextEncoder().encode(message);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     function handleLogout() {

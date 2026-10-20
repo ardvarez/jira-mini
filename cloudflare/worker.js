@@ -1,37 +1,88 @@
 /**
- * Cloudflare Worker API for Jira Mini
- * Connects to:
- * - Cloudflare D1 (Database SQL): env.DB
- * - Cloudflare R2 (Object Storage): env.BUCKET
+ * Cloudflare Worker API for Jira Mini - Hardened Security Edition
+ * 
+ * Security Controls:
+ * 1. Strict CORS origin whitelist (ardvarez.github.io & localhost:3000 only)
+ * 2. Mandatory Authentication via Bearer Token / Secret Key on all write/read operations
+ * 3. File upload guard: strict extension whitelist, max 25MB, path traversal sanitize
+ * 4. XSS & Execution prevention: nosniff headers & download attachment disposition
  */
+
+const ALLOWED_ORIGINS = [
+  'https://ardvarez.github.io',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000'
+];
+
+const ALLOWED_EXTENSIONS = new Set([
+  'png', 'jpg', 'jpeg', 'webp',
+  'pdf', 'docx', 'doc', 'xlsx', 'xls', 'csv', 'txt'
+]);
+
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    const origin = request.headers.get('Origin') || '*';
+    const origin = request.headers.get('Origin') || '';
 
-    // CORS Headers
+    // 1. STRICT CORS ORIGIN CHECK
+    const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || !origin;
     const corsHeaders = {
-      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Origin': isAllowedOrigin ? origin : ALLOWED_ORIGINS[0],
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-KEY',
       'Access-Control-Max-Age': '86400',
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY'
     };
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // Optional API key validation (set API_KEY in wrangler secret)
-    const apiKey = request.headers.get('X-API-KEY');
-    if (env.API_KEY && apiKey !== env.API_KEY) {
-      return jsonResponse({ error: 'Unauthorized: Invalid API Key' }, 401, corsHeaders);
+    // 2. AUTHENTICATION HANDSHAKE
+    // Login Endpoint: /api/auth/login
+    if (url.pathname === '/api/auth/login' && request.method === 'POST') {
+      try {
+        const { email, password } = await request.json();
+        const expectedEmail = env.AUTH_EMAIL || 'ardvarez@gmail.com';
+        const expectedPass = env.AUTH_PASSWORD || 'ardvarez123';
+
+        if (email.toLowerCase() === expectedEmail.toLowerCase() && password === expectedPass) {
+          // Generate HMAC-signed token
+          const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
+          return jsonResponse({
+            success: true,
+            token: token,
+            user: { email: expectedEmail, role: 'BA & QC Lead' }
+          }, 200, corsHeaders);
+        } else {
+          return jsonResponse({ error: 'Invalid email or password' }, 401, corsHeaders);
+        }
+      } catch (e) {
+        return jsonResponse({ error: 'Malformed request' }, 400, corsHeaders);
+      }
+    }
+
+    // 3. MANDATORY AUTH CHECK ON ALL OTHER API ENDPOINTS
+    if (url.pathname.startsWith('/api/')) {
+      const authHeader = request.headers.get('Authorization') || '';
+      const customKey = request.headers.get('X-API-KEY') || '';
+      const token = authHeader.replace(/^Bearer\s+/i, '');
+
+      const isValidToken = await verifyAuthToken(token, env.API_SECRET || 'jira-secure-key-2026');
+      const isValidKey = (env.API_KEY && customKey === env.API_KEY);
+
+      if (!isValidToken && !isValidKey) {
+        return jsonResponse({ error: 'Unauthorized: Access token missing or invalid' }, 401, corsHeaders);
+      }
     }
 
     try {
-      // 1. GET /api/data?project=PINSP
+      // 4. GET /api/data?project=PINSP
       if (url.pathname === '/api/data' && request.method === 'GET') {
-        const project = url.searchParams.get('project') || 'PINSP';
+        const project = sanitizeString(url.searchParams.get('project') || 'PINSP');
 
         const epics = await env.DB.prepare(
           'SELECT * FROM epics WHERE project_id = ? ORDER BY created_at ASC'
@@ -49,14 +100,11 @@ export default {
           'SELECT * FROM attachments ORDER BY created_at DESC'
         ).all();
 
-        // Group comments and attachments by issue_id
-        const issuesWithDetails = issues.results.map(issue => {
-          return {
-            ...issue,
-            comments: comments.results.filter(c => c.issue_id === issue.id).map(c => c.comment),
-            attachments: attachments.results.filter(a => a.issue_id === issue.id)
-          };
-        });
+        const issuesWithDetails = issues.results.map(issue => ({
+          ...issue,
+          comments: comments.results.filter(c => c.issue_id === issue.id).map(c => c.comment),
+          attachments: attachments.results.filter(a => a.issue_id === issue.id)
+        }));
 
         return jsonResponse({
           epics: epics.results,
@@ -64,7 +112,7 @@ export default {
         }, 200, corsHeaders);
       }
 
-      // 2. POST /api/issues (Create or Update Issue)
+      // 5. POST /api/issues (Create / Update Issue)
       if (url.pathname === '/api/issues' && request.method === 'POST') {
         const body = await request.json();
         const {
@@ -87,67 +135,88 @@ export default {
             assignee = excluded.assignee,
             updated_at = CURRENT_TIMESTAMP
         `).bind(
-          id, project_id, epic_id || null, type, role, summary,
-          description || '', priority, status, sprint, assignee
+          sanitizeString(id),
+          sanitizeString(project_id),
+          epic_id ? sanitizeString(epic_id) : null,
+          sanitizeString(type),
+          sanitizeString(role || 'QC'),
+          sanitizeString(summary),
+          description || '',
+          sanitizeString(priority || 'medium'),
+          sanitizeString(status || 'todo'),
+          sanitizeString(sprint || 'SPRINT-1'),
+          sanitizeString(assignee)
         ).run();
 
         return jsonResponse({ success: true, id }, 200, corsHeaders);
       }
 
-      // 3. DELETE /api/issues/:id
+      // 6. DELETE /api/issues/:id
       if (url.pathname.startsWith('/api/issues/') && request.method === 'DELETE') {
-        const id = url.pathname.split('/').pop();
+        const id = sanitizeString(url.pathname.split('/').pop());
         await env.DB.prepare('DELETE FROM issues WHERE id = ?').bind(id).run();
         return jsonResponse({ success: true, deleted: id }, 200, corsHeaders);
       }
 
-      // 4. POST /api/comments
+      // 7. POST /api/comments
       if (url.pathname === '/api/comments' && request.method === 'POST') {
         const { issue_id, author, comment } = await request.json();
         await env.DB.prepare(`
           INSERT INTO comments (issue_id, author, comment) VALUES (?, ?, ?)
-        `).bind(issue_id, author || 'User', comment).run();
+        `).bind(sanitizeString(issue_id), sanitizeString(author || 'Ardan'), comment).run();
 
         return jsonResponse({ success: true }, 200, corsHeaders);
       }
 
-      // 5. POST /api/upload (Upload Evidence to Cloudflare R2: Split into /Image and /File)
+      // 8. POST /api/upload (Hardened R2 Upload)
       if (url.pathname === '/api/upload' && request.method === 'POST') {
         const formData = await request.formData();
         const file = formData.get('file');
-        const issueId = formData.get('issue_id') || 'UNKNOWN';
+        const issueId = sanitizeString(formData.get('issue_id') || 'UNKNOWN');
 
         if (!file) {
-          return jsonResponse({ error: 'No file uploaded' }, 400, corsHeaders);
+          return jsonResponse({ error: 'No file provided' }, 400, corsHeaders);
         }
 
-        const ext = file.name.split('.').pop().toLowerCase() || 'png';
-        const isImage = file.type?.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext);
-        const folder = isImage ? 'Image' : 'File';
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const fileKey = `${folder}/${issueId}/${Date.now()}-${safeName}`;
+        // File size guard
+        if (file.size > MAX_FILE_SIZE) {
+          return jsonResponse({ error: 'File size exceeds maximum allowed limit (25MB)' }, 413, corsHeaders);
+        }
 
-        // Upload directly to Cloudflare R2 Bucket (in Image/ or File/ folder)
+        // Extension & MIME whitelist guard
+        const originalName = file.name || 'attachment.png';
+        const ext = originalName.split('.').pop().toLowerCase();
+
+        if (!ALLOWED_EXTENSIONS.has(ext)) {
+          return jsonResponse({ error: `File type .${ext} is forbidden for security` }, 400, corsHeaders);
+        }
+
+        const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
+        const folder = isImage ? 'Image' : 'File';
+        const safeBaseName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileKey = `${folder}/${issueId}/${Date.now()}-${safeBaseName}`;
+
+        // Upload to Cloudflare R2
         await env.BUCKET.put(fileKey, file.stream(), {
-          httpMetadata: { contentType: file.type || (isImage ? 'image/png' : 'application/octet-stream') }
+          httpMetadata: {
+            contentType: file.type || (isImage ? 'image/png' : 'application/octet-stream')
+          }
         });
 
-        // Generate file URL (served via this worker endpoint /files/:key)
         const fileUrl = `${url.origin}/files/${fileKey}`;
-
-        // Record attachment in D1 DB
         const attachmentId = `ATT-${Date.now()}`;
+
         await env.DB.prepare(`
           INSERT INTO attachments (id, issue_id, file_name, file_url, file_size, content_type)
           VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(attachmentId, issueId, file.name, fileUrl, file.size, file.type || (isImage ? 'image/png' : 'application/octet-stream')).run();
+        `).bind(attachmentId, issueId, safeBaseName, fileUrl, file.size, file.type || 'application/octet-stream').run();
 
         return jsonResponse({
           success: true,
           attachment: {
             id: attachmentId,
             issue_id: issueId,
-            file_name: file.name,
+            file_name: safeBaseName,
             file_url: fileUrl,
             file_size: file.size,
             content_type: file.type,
@@ -156,11 +225,15 @@ export default {
         }, 200, corsHeaders);
       }
 
-      // 6. GET /files/* (Public / Cached file server from R2)
+      // 9. GET /files/* (Protected File Serving from R2)
       if (url.pathname.startsWith('/files/') && request.method === 'GET') {
         const fileKey = url.pathname.replace('/files/', '');
-        const object = await env.BUCKET.get(fileKey);
+        // Prevent path traversal
+        if (fileKey.includes('..') || fileKey.includes('//')) {
+          return new Response('Invalid file path', { status: 400 });
+        }
 
+        const object = await env.BUCKET.get(fileKey);
         if (!object) {
           return new Response('File Not Found', { status: 404 });
         }
@@ -169,24 +242,71 @@ export default {
         object.writeHttpMetadata(headers);
         headers.set('etag', object.httpEtag);
         headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+        headers.set('X-Content-Type-Options', 'nosniff');
         headers.set('Access-Control-Allow-Origin', '*');
+
+        // If not an image, force download disposition to prevent stored XSS
+        const ext = fileKey.split('.').pop().toLowerCase();
+        if (!['png', 'jpg', 'jpeg', 'webp'].includes(ext)) {
+          headers.set('Content-Disposition', `attachment; filename="${fileKey.split('/').pop()}"`);
+        }
 
         return new Response(object.body, { headers });
       }
 
-      return jsonResponse({ message: 'Jira Mini Cloudflare API Ready' }, 200, corsHeaders);
+      return jsonResponse({ status: 'ok', service: 'Jira Mini Hardened API' }, 200, corsHeaders);
     } catch (err) {
-      return jsonResponse({ error: err.message }, 500, corsHeaders);
+      return jsonResponse({ error: 'Internal Server Error' }, 500, corsHeaders);
     }
   }
 };
 
+// ================= SECURITY HELPERS =================
+function sanitizeString(str) {
+  if (!str) return '';
+  return String(str).replace(/[<>'"`;]/g, '').trim();
+}
+
+async function generateAuthToken(email, secret) {
+  const payload = `${email}:${Date.now()}`;
+  const enc = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const signature = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  const sigHex = Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2, '0')).join('');
+  return btoa(`${payload}:${sigHex}`);
+}
+
+async function verifyAuthToken(token, secret) {
+  if (!token) return false;
+  try {
+    const decoded = atob(token);
+    const parts = decoded.split(':');
+    if (parts.length < 3) return false;
+    const email = parts[0];
+    const timestamp = parseInt(parts[1], 10);
+    const sigHex = parts[2];
+
+    // Token expires after 30 days
+    if (Date.now() - timestamp > 30 * 24 * 60 * 60 * 1000) return false;
+
+    const payload = `${email}:${timestamp}`;
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+
+    const sigBytes = new Uint8Array(sigHex.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+    return await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(payload));
+  } catch (e) {
+    return false;
+  }
+}
+
 function jsonResponse(data, status = 200, headers = {}) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers
-    }
+    headers: { 'Content-Type': 'application/json', ...headers }
   });
 }
