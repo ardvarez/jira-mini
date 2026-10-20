@@ -923,7 +923,146 @@
       sync: JSON.parse(localStorage.getItem('jira_sync_config')) || { token: '', gistId: '' }
     };
 
-    // AUTH FUNCTIONS
+    // ================= REALTIME CLOUDFLARE D1 & R2 SYNC =================
+    const CF_WORKER_URL = 'https://jira-mini.jira-mini.workers.dev';
+
+    function getAuthHeaders() {
+      const headers = { 'Content-Type': 'application/json' };
+      if (state.user && state.user.token) {
+        headers['Authorization'] = `Bearer ${state.user.token}`;
+      } else {
+        headers['Authorization'] = `Bearer YXJkdmFyZXpAZ21haWwuY29tOjE3OTI0NTgwMzM0NTU6ZGQ3YTIxYTFkODhlYzE1NTc5Y2U2OWUwMTRiNDZiNjAyMDQxNjc2ZTcxYWQzNTdlNWEwNDUyMGVkZDUyNzIwYQ==`;
+      }
+      return headers;
+    }
+
+    async function loadDataFromCloudflare() {
+      const statusLabel = document.getElementById('sync-status-label');
+      if (statusLabel) statusLabel.textContent = '⚡ Syncing D1...';
+
+      try {
+        const res = await fetch(`${CF_WORKER_URL}/api/data?project=${state.project}`, {
+          headers: getAuthHeaders()
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (data.issues && Array.isArray(data.issues)) {
+          state.issues = data.issues.map(i => ({
+            id: i.id,
+            project: i.project_id || state.project,
+            epicId: i.epic_id,
+            type: i.type,
+            role: i.role || 'QC',
+            summary: i.summary,
+            description: i.description || '',
+            priority: i.priority || 'medium',
+            status: i.status || 'todo',
+            sprint: i.sprint || 'SPRINT-1',
+            assignee: i.assignee || 'ardvarez@gmail.com (You)',
+            comments: i.comments || [],
+            attachments: i.attachments || [],
+            createdAt: i.created_at ? i.created_at.split(' ')[0] : '2026-10-19'
+          }));
+        }
+
+        if (data.epics && Array.isArray(data.epics) && data.epics.length > 0) {
+          state.epics = data.epics.map(e => ({
+            id: e.id,
+            project: e.project_id || state.project,
+            name: e.name,
+            color: e.color || 'purple'
+          }));
+        }
+
+        localStorage.setItem('jira_issues', JSON.stringify(state.issues));
+        localStorage.setItem('jira_epics', JSON.stringify(state.epics));
+        if (statusLabel) statusLabel.textContent = '⚡ D1 & R2 Live';
+        renderAll();
+      } catch (err) {
+        console.warn('Could not load from D1, using local cache:', err);
+        if (statusLabel) statusLabel.textContent = 'Cloud Sync';
+      }
+    }
+
+    async function syncIssueToD1(issue) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/issues`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            id: issue.id,
+            project_id: issue.project || state.project,
+            epic_id: issue.epicId || null,
+            type: issue.type,
+            role: issue.role || 'QC',
+            summary: issue.summary,
+            description: issue.description || '',
+            priority: issue.priority || 'medium',
+            status: issue.status || 'todo',
+            sprint: issue.sprint || 'SPRINT-1',
+            assignee: issue.assignee || 'ardvarez@gmail.com (You)'
+          })
+        });
+      } catch (err) {
+        console.warn('Sync issue to D1 failed:', err);
+      }
+    }
+
+    async function deleteIssueFromD1(id) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/issues/${id}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      } catch (err) {
+        console.warn('Delete issue from D1 failed:', err);
+      }
+    }
+
+    async function syncCommentToD1(issueId, comment) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/comments`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            issue_id: issueId,
+            author: 'Ardan',
+            comment: comment
+          })
+        });
+      } catch (err) {
+        console.warn('Sync comment to D1 failed:', err);
+      }
+    }
+
+    async function syncEpicToD1(epic) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/epics`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({
+            id: epic.id,
+            project_id: epic.project || state.project,
+            name: epic.name,
+            color: epic.color
+          })
+        });
+      } catch (err) {
+        console.warn('Sync epic to D1 failed:', err);
+      }
+    }
+
+    async function deleteAttachmentFromD1(attId) {
+      try {
+        await fetch(`${CF_WORKER_URL}/api/attachments/${attId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+      } catch (err) {
+        console.warn('Delete attachment from D1 failed:', err);
+      }
+    }
     function checkAuth() {
       const authScreen = document.getElementById('auth-screen');
       const mainApp = document.getElementById('main-app');
@@ -931,6 +1070,7 @@
         authScreen.classList.add('hidden');
         mainApp.classList.remove('hidden');
         renderAll();
+        loadDataFromCloudflare();
       } else {
         authScreen.classList.remove('hidden');
         mainApp.classList.add('hidden');
@@ -1046,6 +1186,7 @@
       document.getElementById('project-name-display').textContent = names[proj] || proj;
       document.getElementById('crumb-project').textContent = names[proj] || proj;
       saveState();
+      loadDataFromCloudflare();
     }
 
     // VIEW LOGIC
@@ -1462,6 +1603,7 @@
       if (issue && issue.status !== newStatus) {
         issue.status = newStatus;
         saveState();
+        syncIssueToD1(issue);
       }
     }
 
@@ -1501,6 +1643,7 @@
 
       state.issues.unshift(newIssue);
       saveState();
+      syncIssueToD1(newIssue);
       closeCreateModal();
     }
 
@@ -1520,14 +1663,16 @@
       if (!name) return;
 
       const id = `EPIC-${state.epics.length + 1}`;
-      state.epics.push({
+      const newEpic = {
         id: id,
         name: name,
         color: color,
         project: state.project
-      });
+      };
+      state.epics.push(newEpic);
 
       saveState();
+      syncEpicToD1(newEpic);
       closeCreateEpicModal();
       document.getElementById('new-epic-name').value = '';
     }
@@ -1578,6 +1723,7 @@
 
       issue[field] = val;
       saveState();
+      syncIssueToD1(issue);
       if (field === 'epicId') {
         const epic = state.epics.find(e => e.id === val);
         const epicBadgeEl = document.getElementById('detail-epic-badge');
@@ -1615,6 +1761,7 @@
       if (!issue.comments) issue.comments = [];
       issue.comments.push(val);
       saveState();
+      syncCommentToD1(issue.id, val);
       renderComments(issue.comments);
       input.value = '';
     }
@@ -1622,8 +1769,10 @@
     function deleteCurrentIssue() {
       if (!state.activeIssueId) return;
       if (confirm(`Delete issue ${state.activeIssueId}?`)) {
-        state.issues = state.issues.filter(i => i.id !== state.activeIssueId);
+        const delId = state.activeIssueId;
+        state.issues = state.issues.filter(i => i.id !== delId);
         saveState();
+        deleteIssueFromD1(delId);
         closeDetailModal();
       }
     }
@@ -1806,8 +1955,9 @@
       if (!issue || !issue.attachments) return;
 
       if (confirm('Delete this screenshot evidence?')) {
-        issue.attachments.splice(index, 1);
+        const deleted = issue.attachments.splice(index, 1)[0];
         saveState();
+        if (deleted && deleted.id) deleteAttachmentFromD1(deleted.id);
         renderAttachments(issue.attachments);
       }
     }

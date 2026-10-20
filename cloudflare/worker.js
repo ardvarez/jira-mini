@@ -161,7 +161,27 @@ export default {
       if (url.pathname.startsWith('/api/issues/') && request.method === 'DELETE') {
         const id = sanitizeString(url.pathname.split('/').pop());
         await env.DB.prepare('DELETE FROM issues WHERE id = ?').bind(id).run();
+        await env.DB.prepare('DELETE FROM comments WHERE issue_id = ?').bind(id).run();
+        await env.DB.prepare('DELETE FROM attachments WHERE issue_id = ?').bind(id).run();
         return jsonResponse({ success: true, deleted: id }, 200, corsHeaders);
+      }
+
+      // 6b. POST /api/epics
+      if (url.pathname === '/api/epics' && request.method === 'POST') {
+        const { id, project_id, name, color } = await request.json();
+        await env.DB.prepare(`
+          INSERT INTO epics (id, project_id, name, color) VALUES (?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET name = excluded.name, color = excluded.color
+        `).bind(sanitizeString(id), sanitizeString(project_id), sanitizeString(name), sanitizeString(color || 'purple')).run();
+
+        return jsonResponse({ success: true, id }, 200, corsHeaders);
+      }
+
+      // 6c. DELETE /api/attachments/:id
+      if (url.pathname.startsWith('/api/attachments/') && request.method === 'DELETE') {
+        const id = sanitizeString(url.pathname.split('/').pop());
+        await env.DB.prepare('DELETE FROM attachments WHERE id = ?').bind(id).run();
+        return jsonResponse({ success: true, deletedAttachment: id }, 200, corsHeaders);
       }
 
       // 7. POST /api/comments
