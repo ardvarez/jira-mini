@@ -7,7 +7,7 @@ account_id = "30a697e36a3b4e6299a11a61da9b5906"
 [[d1_databases]]
 binding = "DB"
 database_name = "jira-db"
-database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+database_id = "a164216e-ed3c-414d-9a65-1ebeb038900b"
 
 # Cloudflare R2 Bucket Binding
 [[r2_buckets]]
