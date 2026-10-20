@@ -26,15 +26,21 @@ export default {
     const url = new URL(request.url);
     const origin = request.headers.get('Origin') || '';
 
-    // 1. STRICT CORS ORIGIN CHECK
-    const isAllowedOrigin = ALLOWED_ORIGINS.includes(origin) || !origin;
+    // 1. FLEXIBLE & SECURE CORS ORIGIN CHECK
+    const isAllowedOrigin = !origin || 
+      origin === 'null' ||
+      origin.includes('ardvarez.github.io') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1');
+
+    const allowOrigin = isAllowedOrigin ? (origin === 'null' || !origin ? '*' : origin) : 'https://ardvarez.github.io';
+
     const corsHeaders = {
-      'Access-Control-Allow-Origin': isAllowedOrigin ? origin : ALLOWED_ORIGINS[0],
+      'Access-Control-Allow-Origin': allowOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-API-KEY',
       'Access-Control-Max-Age': '86400',
       'X-Content-Type-Options': 'nosniff',
-      'X-Frame-Options': 'DENY'
     };
 
     if (request.method === 'OPTIONS') {

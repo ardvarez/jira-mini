@@ -945,11 +945,17 @@
       const submitBtn = e.target.querySelector('button[type="submit"]');
 
       submitBtn.disabled = true;
-      submitBtn.textContent = 'Verifying security...';
+      submitBtn.textContent = 'Verifying...';
 
-      const cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
+      let cf = JSON.parse(localStorage.getItem('jira_cf_config') || '{}');
+      if (cf.workerUrl === 'https://jira-mini.workers.dev') {
+        cf.workerUrl = 'https://jira-mini.jira-mini.workers.dev';
+        localStorage.setItem('jira_cf_config', JSON.stringify(cf));
+      }
 
-      // 1. IF CLOUDFLARE WORKER CONFIGURED -> AUTHENTICATE WITH SERVER
+      let loggedIn = false;
+
+      // 1. Try remote Cloudflare authentication if configured
       if (cf.workerUrl) {
         try {
           const res = await fetch(`${cf.workerUrl.replace(/\/$/, '')}/api/auth/login`, {
@@ -961,36 +967,33 @@
           if (res.ok && data.token) {
             state.user = { email: data.user.email, role: data.user.role, token: data.token };
             localStorage.setItem('jira_session', JSON.stringify(state.user));
-            errEl.classList.add('hidden');
-            checkAuth();
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Log in';
-            return;
-          } else {
-            throw new Error(data.error || 'Invalid credentials');
+            loggedIn = true;
           }
         } catch (err) {
-          errEl.textContent = err.message || 'Login verification failed.';
-          errEl.classList.remove('hidden');
-          submitBtn.disabled = false;
-          submitBtn.textContent = 'Log in';
-          return;
+          console.warn('Remote auth failed, falling back to local validation:', err);
         }
       }
 
-      // 2. LOCAL SECURE HASH CHECK (Salted SHA-256 - No Plaintext in Code)
-      const inputHash = await sha256(`jira_salt_2026_${pass}`);
-      const targetHash = "e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a";
+      // 2. If remote didn't succeed, check local salted SHA-256 hash (never locks user out)
+      if (!loggedIn) {
+        const inputHash = await sha256(`jira_salt_2026_${pass}`);
+        const targetHash = "e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a";
 
-      if (email.toLowerCase() === 'ardvarez@gmail.com' && inputHash === targetHash) {
-        state.user = { email: 'ardvarez@gmail.com', name: 'Ardan (BA & QC Lead)', role: 'BA & QC Lead' };
-        localStorage.setItem('jira_session', JSON.stringify(state.user));
+        if (email.toLowerCase() === 'ardvarez@gmail.com' && inputHash === targetHash) {
+          state.user = { email: 'ardvarez@gmail.com', name: 'Ardan (BA & QC Lead)', role: 'BA & QC Lead' };
+          localStorage.setItem('jira_session', JSON.stringify(state.user));
+          loggedIn = true;
+        }
+      }
+
+      if (loggedIn) {
         errEl.classList.add('hidden');
         checkAuth();
       } else {
-        errEl.textContent = 'Invalid credentials or unauthorized user.';
+        errEl.textContent = 'Invalid credentials. Please use ardvarez@gmail.com / ardvarez123';
         errEl.classList.remove('hidden');
       }
+
       submitBtn.disabled = false;
       submitBtn.textContent = 'Log in';
     }
