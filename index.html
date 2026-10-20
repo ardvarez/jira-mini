@@ -2970,13 +2970,17 @@
       submitBtn.textContent = 'Memverifikasi...';
 
       let loggedIn = false;
+      let networkFailed = false;
+
+      // Compute client-side salted hash
+      const passwordHash = await sha256(`jira_salt_2026_${pass}`);
 
       // 1. Try remote BE login
       try {
         const res = await fetch(`${CF_WORKER_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password: pass })
+          body: JSON.stringify({ email, password: pass, password_hash: passwordHash })
         });
         const data = await res.json();
         if (res.ok && data.token) {
@@ -2992,23 +2996,30 @@
           localStorage.removeItem('jira_auth_token');
           localStorage.setItem('jira_user_role', state.userRole);
           loggedIn = true;
+        } else if (res.status === 401) {
+          // Explicit invalid credentials: do not fall back to local fake login
+          errEl.textContent = 'Email atau password salah.';
+          errEl.classList.remove('hidden');
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Masuk ke Workspace';
+          return;
         }
       } catch (err) {
-        console.warn('Remote auth failed, using local validation:', err);
+        console.warn('Remote auth failed, using offline local validation:', err);
+        networkFailed = true;
       }
 
-      // 2. Local check
-      if (!loggedIn) {
-        const inputHash = await sha256(`jira_salt_2026_${pass}`);
+      // 2. Offline Local check (only if network failed)
+      if (!loggedIn && networkFailed) {
         const users = getRegisteredUsers();
-        const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && (u.hash === inputHash || u.hash === pass));
+        const found = users.find(u => u.email.toLowerCase() === email.toLowerCase() && (u.hash === passwordHash || u.hash === pass));
         if (found) {
           state.user = { email: found.email, name: found.name, role: found.role };
           state.userRole = found.role || 'QC';
           localStorage.setItem('jira_session', JSON.stringify(state.user));
           localStorage.setItem('jira_user_role', state.userRole);
           loggedIn = true;
-        } else if (email.toLowerCase() === 'ardvarez@gmail.com' && (inputHash === 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a' || pass === '123456')) {
+        } else if (email.toLowerCase() === 'ardvarez@gmail.com' && (passwordHash === 'e665936361ced424c1b4c12772b2483fa7986276a907c16828f3a2f07f85c42a' || pass === '123456')) {
           state.user = { email: 'ardvarez@gmail.com', name: 'Ardan', role: 'PM' };
           state.userRole = 'PM';
           localStorage.setItem('jira_session', JSON.stringify(state.user));

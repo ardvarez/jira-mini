@@ -72,7 +72,21 @@ export default {
           const dbUser = await env.DB.prepare('SELECT * FROM users WHERE LOWER(email) = ?')
             .bind(email.toLowerCase()).first();
           if (dbUser) {
-            const matched = dbUser.password_hash === (password_hash || password) || !dbUser.password_hash;
+            let matched = false;
+            if (!dbUser.password_hash) {
+              matched = true;
+            } else if (password_hash && dbUser.password_hash === password_hash) {
+              matched = true;
+            } else if (password && dbUser.password_hash === password) {
+              matched = true;
+            } else if (password) {
+              const salted = await sha256Hex(`jira_salt_2026_${password}`);
+              const plain = await sha256Hex(password);
+              if (dbUser.password_hash === salted || dbUser.password_hash === plain) {
+                matched = true;
+              }
+            }
+
             if (matched) {
               const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
               return jsonResponse({
@@ -472,6 +486,13 @@ export default {
 function sanitizeString(str) {
   if (!str) return '';
   return String(str).replace(/[<>'"`;]/g, '').trim();
+}
+
+async function sha256Hex(str) {
+  if (!str) return '';
+  const enc = new TextEncoder();
+  const digest = await crypto.subtle.digest('SHA-256', enc.encode(str));
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function generateAuthToken(email, secret) {
