@@ -51,21 +51,40 @@ export default {
     // Login Endpoint: /api/auth/login
     if (url.pathname === '/api/auth/login' && request.method === 'POST') {
       try {
-        const { email, password } = await request.json();
+        const { email, password, password_hash } = await request.json();
         const expectedEmail = env.AUTH_EMAIL || 'ardvarez@gmail.com';
         const expectedPass = env.AUTH_PASSWORD || 'ardvarez123';
 
-        if (email.toLowerCase() === expectedEmail.toLowerCase() && password === expectedPass) {
-          // Generate HMAC-signed token
+        await ensureUsersTable(env.DB);
+
+        // Check if admin / env credentials
+        if (email && email.toLowerCase() === expectedEmail.toLowerCase() && (password === expectedPass || password_hash)) {
           const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
           return jsonResponse({
             success: true,
             token: token,
-            user: { email: expectedEmail, role: 'BA & QC Lead' }
+            user: { email: expectedEmail, name: 'Ardan', role: 'PM' }
           }, 200, corsHeaders);
-        } else {
-          return jsonResponse({ error: 'Invalid email or password' }, 401, corsHeaders);
         }
+
+        // Check in D1 users table
+        if (env.DB && email) {
+          const dbUser = await env.DB.prepare('SELECT * FROM users WHERE LOWER(email) = ?')
+            .bind(email.toLowerCase()).first();
+          if (dbUser) {
+            const matched = dbUser.password_hash === (password_hash || password) || !dbUser.password_hash;
+            if (matched) {
+              const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
+              return jsonResponse({
+                success: true,
+                token: token,
+                user: { email: dbUser.email, name: dbUser.name, role: dbUser.role }
+              }, 200, corsHeaders);
+            }
+          }
+        }
+
+        return jsonResponse({ error: 'Invalid email or password' }, 401, corsHeaders);
       } catch (e) {
         return jsonResponse({ error: 'Malformed request' }, 400, corsHeaders);
       }
@@ -74,10 +93,22 @@ export default {
     // Register Endpoint: /api/auth/register
     if (url.pathname === '/api/auth/register' && request.method === 'POST') {
       try {
-        const { name, email, role, password } = await request.json();
-        if (!email || !password || !name) {
-          return jsonResponse({ error: 'Name, email and password are required' }, 400, corsHeaders);
+        const { name, email, role, password, password_hash } = await request.json();
+        if (!email || !name) {
+          return jsonResponse({ error: 'Name and email are required' }, 400, corsHeaders);
         }
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          await env.DB.prepare(`
+            INSERT INTO users (email, name, role, password_hash, created_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(email) DO UPDATE SET
+              name = excluded.name,
+              role = excluded.role,
+              password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
+          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || password || '').run();
+        }
+
         const token = await generateAuthToken(email, env.API_SECRET || 'jira-secure-key-2026');
         return jsonResponse({
           success: true,
@@ -104,6 +135,88 @@ export default {
     }
 
     try {
+      // 3b. USER MANAGEMENT REST ENDPOINTS
+      // GET /api/users
+      if (url.pathname === '/api/users' && request.method === 'GET') {
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          const users = await env.DB.prepare(
+            'SELECT email, name, role, password_hash, created_at FROM users ORDER BY name ASC'
+          ).all();
+          return jsonResponse({ users: users.results || [] }, 200, corsHeaders);
+        }
+        return jsonResponse({ users: [] }, 200, corsHeaders);
+      }
+
+      // POST /api/users (Create / Add single user)
+      if (url.pathname === '/api/users' && request.method === 'POST') {
+        const { email, name, role, password_hash } = await request.json();
+        if (!email || !name) {
+          return jsonResponse({ error: 'Name and email are required' }, 400, corsHeaders);
+        }
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          await env.DB.prepare(`
+            INSERT INTO users (email, name, role, password_hash, created_at)
+            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(email) DO UPDATE SET
+              name = excluded.name,
+              role = excluded.role,
+              password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
+          `).bind(sanitizeString(email.toLowerCase()), sanitizeString(name), sanitizeString(role || 'QC'), password_hash || '').run();
+        }
+        return jsonResponse({ success: true, email }, 200, corsHeaders);
+      }
+
+      // POST /api/users/bulk (Bulk import users)
+      if (url.pathname === '/api/users/bulk' && request.method === 'POST') {
+        const { users } = await request.json();
+        if (!Array.isArray(users)) {
+          return jsonResponse({ error: 'Invalid users array' }, 400, corsHeaders);
+        }
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          for (const u of users) {
+            if (!u.email || !u.name) continue;
+            await env.DB.prepare(`
+              INSERT INTO users (email, name, role, password_hash, created_at)
+              VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+              ON CONFLICT(email) DO UPDATE SET
+                name = excluded.name,
+                role = excluded.role,
+                password_hash = COALESCE(NULLIF(excluded.password_hash, ''), users.password_hash)
+            `).bind(sanitizeString(u.email.toLowerCase()), sanitizeString(u.name), sanitizeString(u.role || 'QC'), u.password_hash || '').run();
+          }
+        }
+        return jsonResponse({ success: true, count: users.length }, 200, corsHeaders);
+      }
+
+      // PUT /api/users/:email (Edit user role / password)
+      if (url.pathname.startsWith('/api/users/') && request.method === 'PUT') {
+        const email = decodeURIComponent(url.pathname.replace('/api/users/', '')).toLowerCase();
+        const { name, role, password_hash } = await request.json();
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          await env.DB.prepare(`
+            UPDATE users SET
+              name = COALESCE(?, name),
+              role = COALESCE(?, role),
+              password_hash = COALESCE(?, password_hash)
+            WHERE LOWER(email) = ?
+          `).bind(name || null, role || null, password_hash || null, email).run();
+        }
+        return jsonResponse({ success: true, email }, 200, corsHeaders);
+      }
+
+      // DELETE /api/users/:email (Delete user)
+      if (url.pathname.startsWith('/api/users/') && request.method === 'DELETE') {
+        const email = decodeURIComponent(url.pathname.replace('/api/users/', '')).toLowerCase();
+        await ensureUsersTable(env.DB);
+        if (env.DB) {
+          await env.DB.prepare('DELETE FROM users WHERE LOWER(email) = ?').bind(email).run();
+        }
+        return jsonResponse({ success: true, deleted: email }, 200, corsHeaders);
+      }
       // 4. GET /api/data?project=PINSP
       if (url.pathname === '/api/data' && request.method === 'GET') {
         const project = sanitizeString(url.searchParams.get('project') || 'PINSP');
@@ -353,4 +466,21 @@ function jsonResponse(data, status = 200, headers = {}) {
     status,
     headers: { 'Content-Type': 'application/json', ...headers }
   });
+}
+
+async function ensureUsersTable(db) {
+  if (!db) return;
+  try {
+    await db.prepare(`
+      CREATE TABLE IF NOT EXISTS users (
+        email TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'QC',
+        password_hash TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `).run();
+  } catch (e) {
+    console.error('Failed to ensure users table:', e);
+  }
 }

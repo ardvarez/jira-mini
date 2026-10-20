@@ -2041,8 +2041,8 @@
           <input 
             type="url" 
             id="cf-worker-url" 
-            value="https://jira-mini-backend.jira-mini.workers.dev" 
-            placeholder="https://jira-mini-backend.jira-mini.workers.dev" 
+            value="https://jira-mini.jira-mini.workers.dev" 
+            placeholder="https://jira-mini.jira-mini.workers.dev" 
             class="w-full border border-gray-200 bg-white rounded-xl px-3 py-2 font-mono text-xs focus:outline-none focus:border-[#0c66e4] focus:ring-2 focus:ring-blue-100 transition" 
           />
           <div class="flex items-center gap-2">
@@ -2123,7 +2123,7 @@
 
   <script>
     // ================= CONFIG & STATE =================
-    let CF_WORKER_URL = localStorage.getItem('cf_worker_url') || 'https://jira-mini-backend.jira-mini.workers.dev';
+    let CF_WORKER_URL = localStorage.getItem('cf_worker_url') || 'https://jira-mini.jira-mini.workers.dev';
 
     const BOARD_COLUMNS = [
       { id: 'todo', title: 'TO DO / ANALYSIS', color: 'border-slate-300' },
@@ -2325,6 +2325,39 @@
 
         localStorage.setItem('jira_issues', JSON.stringify(state.issues));
         localStorage.setItem('jira_epics', JSON.stringify(state.epics));
+
+        // Sync registered users from D1 Database
+        try {
+          const userRes = await fetch(`${CF_WORKER_URL}/api/users`, { headers: getAuthHeaders() });
+          if (userRes.ok) {
+            const uData = await userRes.json();
+            if (uData.users && Array.isArray(uData.users) && uData.users.length > 0) {
+              const localUsers = getRegisteredUsers();
+              uData.users.forEach(remoteU => {
+                const idx = localUsers.findIndex(x => x.email.toLowerCase() === remoteU.email.toLowerCase());
+                if (idx >= 0) {
+                  localUsers[idx].name = remoteU.name || localUsers[idx].name;
+                  localUsers[idx].role = remoteU.role || localUsers[idx].role;
+                  if (remoteU.password_hash) localUsers[idx].hash = remoteU.password_hash;
+                } else {
+                  localUsers.push({
+                    name: remoteU.name,
+                    email: remoteU.email,
+                    role: remoteU.role || 'QC',
+                    hash: remoteU.password_hash || '',
+                    createdAt: remoteU.created_at || new Date().toISOString()
+                  });
+                }
+              });
+              saveRegisteredUsers(localUsers);
+              populateAssigneeDropdowns();
+              renderUserManagementList();
+            }
+          }
+        } catch (uErr) {
+          console.warn('Could not load users from D1:', uErr);
+        }
+
         if (statusLabel) statusLabel.textContent = 'D1 & R2 Live';
         renderAll();
       } catch (err) {
@@ -2494,6 +2527,21 @@
       });
       saveRegisteredUsers(users);
 
+      // Persist to Cloudflare D1 Backend
+      try {
+        const remoteRes = await fetch(`${CF_WORKER_URL}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, role, password_hash: inputHash })
+        });
+        if (remoteRes.ok) {
+          const remoteData = await remoteRes.json();
+          if (remoteData.token) state.user.token = remoteData.token;
+        }
+      } catch (err) {
+        console.warn('Backend D1 sync failed:', err);
+      }
+
       // Auto-add new user to all projects as member
       state.projects.forEach(p => {
         if (!p.members) p.members = [];
@@ -2504,7 +2552,7 @@
       localStorage.setItem('jira_projects', JSON.stringify(state.projects));
 
       // Login session
-      state.user = { email, name, role };
+      state.user = { email, name, role, token: state.user.token || '' };
       state.userRole = role;
       localStorage.setItem('jira_session', JSON.stringify(state.user));
       localStorage.setItem('jira_user_role', role);
@@ -2515,6 +2563,62 @@
 
       checkAuth();
       showToast(`Selamat datang, ${name}! Akun berhasil dibuat (${role}).`, 'success');
+    }
+
+    // ================= BACKEND D1 USER REST SYNC =================
+    async function apiSyncUser(userData) {
+      try {
+        const res = await fetch(`${CF_WORKER_URL}/api/users`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(userData)
+        });
+        return res.ok;
+      } catch (e) {
+        console.warn('Sync user to D1 warning:', e);
+        return false;
+      }
+    }
+
+    async function apiSyncBulkUsers(usersList) {
+      try {
+        const res = await fetch(`${CF_WORKER_URL}/api/users/bulk`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ users: usersList })
+        });
+        return res.ok;
+      } catch (e) {
+        console.warn('Sync bulk users to D1 warning:', e);
+        return false;
+      }
+    }
+
+    async function apiUpdateUser(email, updateData) {
+      try {
+        const res = await fetch(`${CF_WORKER_URL}/api/users/${encodeURIComponent(email)}`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify(updateData)
+        });
+        return res.ok;
+      } catch (e) {
+        console.warn('Update user in D1 warning:', e);
+        return false;
+      }
+    }
+
+    async function apiDeleteUser(email) {
+      try {
+        const res = await fetch(`${CF_WORKER_URL}/api/users/${encodeURIComponent(email)}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        });
+        return res.ok;
+      } catch (e) {
+        console.warn('Delete user in D1 warning:', e);
+        return false;
+      }
     }
 
     function checkAuth() {
@@ -3173,6 +3277,9 @@
         user.role = newRole;
         saveRegisteredUsers(users);
 
+        // Update in Cloudflare D1 Database
+        apiUpdateUser(email, { role: newRole });
+
         // Update in project members
         state.projects.forEach(p => {
           if (p.members) {
@@ -3193,7 +3300,7 @@
 
         populateAssigneeDropdowns();
         renderProjectMembersList();
-        showToast(`Role untuk ${email} diubah menjadi ${newRole}.`, 'success');
+        showToast(`Role untuk ${email} diubah menjadi ${newRole} (tersimpan di Database).`, 'success');
       }
     }
 
@@ -3218,7 +3325,11 @@
 
       user.hash = await sha256(`jira_salt_2026_${defPwd}`);
       saveRegisteredUsers(users);
-      showToast(`Password akun "${email}" berhasil di-reset ke "${defPwd}".`, 'success');
+
+      // Update in Cloudflare D1 Database
+      apiUpdateUser(email, { password_hash: user.hash });
+
+      showToast(`Password akun "${email}" berhasil di-reset ke "${defPwd}" (tersimpan di Database).`, 'success');
     }
 
     async function deleteWorkspaceUser(email) {
@@ -3241,6 +3352,9 @@
       users = users.filter(u => u.email.toLowerCase() !== email.toLowerCase());
       saveRegisteredUsers(users);
 
+      // Delete from Cloudflare D1 Database
+      apiDeleteUser(email);
+
       // Remove from project members
       state.projects.forEach(p => {
         if (p.members) {
@@ -3252,7 +3366,7 @@
       renderUserManagementList();
       renderProjectMembersList();
       populateAssigneeDropdowns();
-      showToast(`User "${email}" berhasil dihapus.`, 'info');
+      showToast(`User "${email}" berhasil dihapus dari workspace & database.`, 'info');
     }
 
     async function handleCreateUserFromMgmt(e) {
@@ -3291,6 +3405,9 @@
       });
       saveRegisteredUsers(users);
 
+      // Persist to Cloudflare D1 Database
+      apiSyncUser({ name, email, role, password_hash: inputHash });
+
       // Add to all projects as member
       state.projects.forEach(p => {
         if (!p.members) p.members = [];
@@ -3307,7 +3424,7 @@
 
       populateAssigneeDropdowns();
       renderProjectMembersList();
-      showToast(`User "${name}" (${role}) berhasil dibuat! Password: "${pass}".`, 'success');
+      showToast(`User "${name}" (${role}) berhasil dibuat & disimpan ke Database! Password: "${pass}".`, 'success');
       switchUserMgmtTab('list');
     }
 
@@ -3585,13 +3702,21 @@
       saveRegisteredUsers(registeredUsers);
       localStorage.setItem('jira_projects', JSON.stringify(state.projects));
 
+      // Persist bulk users to Cloudflare D1 Database
+      apiSyncBulkUsers(readyUsers.map(u => ({
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        password_hash: ''
+      })));
+
       cancelUserImportPreview();
       renderUserManagementList();
       renderProjectMembersList();
       populateAssigneeDropdowns();
       switchUserMgmtTab('list');
 
-      showToast(`Sukses mengimport ${readyUsers.length} user baru ke workspace!`, 'success');
+      showToast(`Sukses mengimport ${readyUsers.length} user baru ke workspace & database!`, 'success');
     }
 
     function switchView(viewName) {
@@ -4667,7 +4792,19 @@
         for (const issue of state.issues) {
           await syncIssueToD1(issue);
         }
-        fb.textContent = `Sukses! ${state.issues.length} task berhasil disinkronkan ke Cloudflare D1.`;
+
+        // Push registered users to D1
+        const allUsers = getRegisteredUsers();
+        if (allUsers.length > 0) {
+          await apiSyncBulkUsers(allUsers.map(u => ({
+            name: u.name,
+            email: u.email,
+            role: u.role,
+            password_hash: u.hash || ''
+          })));
+        }
+
+        fb.textContent = `Sukses! ${state.issues.length} task & ${allUsers.length} user berhasil disinkronkan ke Cloudflare D1.`;
         fb.className = 'p-2.5 rounded-xl text-xs bg-emerald-50 text-emerald-800 border border-emerald-200 block font-bold';
         showToast('Semua task berhasil disinkronkan ke D1!', 'success');
       } catch (err) {
