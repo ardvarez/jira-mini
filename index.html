@@ -99,9 +99,9 @@
         <!-- PROJECT SWITCHER -->
         <div class="relative">
           <select id="project-selector" onchange="changeProject(this.value)" class="bg-gray-100 hover:bg-gray-200 text-xs font-semibold px-3 py-1.5 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer">
-            <option value="CORE">📁 Project 1: Core Platform</option>
-            <option value="PAY">📁 Project 2: Payment Gateway</option>
-            <option value="MOBI">📁 Project 3: Mobile Apps</option>
+            <option value="PINSP">📁 Power Inspect</option>
+            <option value="PSWIFT">📁 Power Swift</option>
+            <option value="NPST">📁 New PST</option>
           </select>
         </div>
 
@@ -176,10 +176,10 @@
           <!-- PROJECT INFO -->
           <div class="flex items-center gap-3 px-1">
             <div id="project-icon" class="w-10 h-10 rounded bg-blue-600 text-white font-bold text-sm flex items-center justify-center shadow-sm">
-              CP
+              PI
             </div>
             <div class="overflow-hidden">
-              <h2 id="project-name-display" class="font-bold text-sm text-gray-900 truncate">Core Platform</h2>
+              <h2 id="project-name-display" class="font-bold text-sm text-gray-900 truncate">Power Inspect</h2>
               <p class="text-xs text-gray-500">Scrum Software Project</p>
             </div>
           </div>
@@ -238,7 +238,7 @@
           <div class="flex items-center justify-between flex-wrap gap-2">
             <div>
               <div class="text-xs text-gray-500 mb-0.5 flex items-center gap-1.5">
-                <span id="crumb-project">Core Platform</span> / <span id="crumb-view" class="text-gray-800 font-semibold">Active Sprint</span>
+                <span id="crumb-project">Power Inspect</span> / <span id="crumb-view" class="text-gray-800 font-semibold">Active Sprint</span>
               </div>
               <div class="flex items-center gap-3">
                 <h1 id="view-title" class="text-2xl font-bold text-[#172b4d]">Sprint 1 (Active)</h1>
@@ -651,107 +651,136 @@
     ];
 
     const DEFAULT_EPICS = [
-      { id: 'EPIC-1', name: 'User Authentication & KYC', color: 'purple', project: 'CORE' },
-      { id: 'EPIC-2', name: 'Checkout & Payment Engine', color: 'blue', project: 'CORE' },
-      { id: 'EPIC-3', name: 'Reporting & Dashboard BA Export', color: 'emerald', project: 'CORE' }
+      // Power Inspect Epics
+      { id: 'EPIC-PI-1', name: 'Inspection Workflow & Digital Forms', color: 'purple', project: 'PINSP' },
+      { id: 'EPIC-PI-2', name: 'Offline Data Sync & Photo Evidence', color: 'blue', project: 'PINSP' },
+      { id: 'EPIC-PI-3', name: 'Inspection Reports & PDF Export', color: 'emerald', project: 'PINSP' },
+      
+      // Power Swift Epics
+      { id: 'EPIC-PS-1', name: 'Dispatch & Routing Optimization', color: 'purple', project: 'PSWIFT' },
+      { id: 'EPIC-PS-2', name: 'Real-time Tracking & Geo-fencing', color: 'blue', project: 'PSWIFT' },
+      
+      // New PST Epics
+      { id: 'EPIC-NP-1', name: 'PST Portal Core Redesign', color: 'purple', project: 'NPST' },
+      { id: 'EPIC-NP-2', name: 'User Role Permissions & Audit Logs', color: 'emerald', project: 'NPST' }
     ];
 
     const DEFAULT_ISSUES = [
+      // Power Inspect Tasks
       {
-        id: 'CORE-101',
-        project: 'CORE',
-        epicId: 'EPIC-1',
+        id: 'PINSP-101',
+        project: 'PINSP',
+        epicId: 'EPIC-PI-1',
         type: 'story',
         role: 'BA',
-        summary: '[BA] Finalize PRD for Biometric 2FA Login Flow',
-        description: 'Acceptance Criteria:\n1. User with FaceID/Fingerprint can login under 1.5s.\n2. Fallback to OTP SMS when biometric fails 3x.\n3. Audit log user agent & IP.',
+        summary: '[BA] Finalize PRD for Inspection Checklist Custom Fields',
+        description: 'Acceptance Criteria:\n1. Inspector can add dynamic form fields.\n2. Support validation rule (mandatory/optional).\n3. Field type includes dropdown, numeric, photo, signature.',
         priority: 'high',
         status: 'done',
         sprint: 'SPRINT-1',
         assignee: 'ardvarez@gmail.com (You)',
-        comments: ['PRD approved by Product Owner', 'Handoff to Dev complete'],
-        createdAt: '2026-10-16'
+        comments: ['PRD approved by stakeholders', 'Dev handoff completed'],
+        createdAt: '2026-10-18'
       },
       {
-        id: 'CORE-102',
-        project: 'CORE',
-        epicId: 'EPIC-1',
+        id: 'PINSP-102',
+        project: 'PINSP',
+        epicId: 'EPIC-PI-2',
         type: 'test_case',
         role: 'QC',
-        summary: '[QC] Test Execution: Biometric Timeout & Fallback SMS',
-        description: 'Test Steps:\n1. Open App, trigger Biometric modal.\n2. Wait 30s timeout.\nExpected: Fallback to PIN / SMS OTP appears without crash.',
+        summary: '[QC] Test Execution: Offline Photo Evidence Upload & Local DB Cache',
+        description: 'Test Steps:\n1. Put device in Airplane Mode.\n2. Capture 5 photos in inspection form.\n3. Turn network back on.\nExpected: Photos sync queue resumes with retry logic.',
         priority: 'highest',
         status: 'testing',
         sprint: 'SPRINT-1',
         assignee: 'ardvarez@gmail.com (You)',
-        comments: ['Testing on iPhone 15 & Samsung S24', 'Found 1 minor delay on SMS trigger'],
-        createdAt: '2026-10-18'
+        comments: ['Verified on Android 14. iOS pending background sync verification.'],
+        createdAt: '2026-10-19'
       },
       {
-        id: 'CORE-103',
-        project: 'CORE',
-        epicId: 'EPIC-1',
+        id: 'PINSP-103',
+        project: 'PINSP',
+        epicId: 'EPIC-PI-2',
         type: 'bug',
         role: 'QC',
-        summary: '[QC Defect] OTP SMS button can be spammed 5x in 2 seconds',
-        description: 'Severity: High\nReproduction Steps:\nTap "Resend OTP" rapidly.\nActual Result: 5 SMS sent, rate limiter bypassed.\nExpected: 60s cooldown disabled button.',
+        summary: '[QC Defect] Photo thumbnail corrupted when app killed in background',
+        description: 'Severity: High\nSteps to reproduce:\n1. Upload high-res photo (>10MB).\n2. Force close app during compression.\nActual: Black square thumbnail displayed.',
         priority: 'highest',
         status: 'in_progress',
         sprint: 'SPRINT-1',
         assignee: 'Budi (Dev)',
-        comments: ['Dev investigating Redis rate limiter key'],
+        comments: ['Dev adding atomic write to local storage'],
         createdAt: '2026-10-19'
       },
       {
-        id: 'CORE-104',
-        project: 'CORE',
-        epicId: 'EPIC-2',
+        id: 'PINSP-104',
+        project: 'PINSP',
+        epicId: 'EPIC-PI-3',
         type: 'task',
         role: 'BA',
-        summary: '[BA] Map API Schema for QRIS & Virtual Account Payment',
-        description: 'Draft API contracts between Core Engine & Payment Gateway Provider.',
+        summary: '[BA] Define Layout & Watermark Specs for Inspection PDF Export',
+        description: 'Include GPS coordinates, timestamp watermark, company logo, and inspector signature.',
+        priority: 'medium',
+        status: 'todo',
+        sprint: 'SPRINT-1',
+        assignee: 'ardvarez@gmail.com (You)',
+        comments: [],
+        createdAt: '2026-10-20'
+      },
+
+      // Power Swift Tasks
+      {
+        id: 'PSWIFT-101',
+        project: 'PSWIFT',
+        epicId: 'EPIC-PS-1',
+        type: 'story',
+        role: 'BA',
+        summary: '[BA] Business Flow for Multi-Drop Order Dispatching',
+        description: 'Define business rules for vehicle capacity constraints and route clustering.',
         priority: 'high',
         status: 'todo',
         sprint: 'SPRINT-1',
         assignee: 'ardvarez@gmail.com (You)',
-        comments: ['Waiting for third-party webhook specs'],
+        comments: [],
         createdAt: '2026-10-19'
       },
       {
-        id: 'CORE-105',
-        project: 'CORE',
-        epicId: 'EPIC-2',
+        id: 'PSWIFT-102',
+        project: 'PSWIFT',
+        epicId: 'EPIC-PS-2',
         type: 'test_case',
         role: 'QC',
-        summary: '[QC] Validate QRIS expired countdown & auto-cancel status',
-        description: 'Verify invoice changes to EXPIRED after 15 minutes without payment.',
-        priority: 'medium',
+        summary: '[QC] Real-time Driver GPS Telemetry Ping (<5s latency)',
+        description: 'Verify WebSocket ping updates map pin location every 5 seconds.',
+        priority: 'high',
         status: 'todo',
         sprint: 'SPRINT-1',
         assignee: 'Dewi (Sr. QC)',
         comments: [],
         createdAt: '2026-10-20'
       },
+
+      // New PST Tasks
       {
-        id: 'CORE-106',
-        project: 'CORE',
-        epicId: 'EPIC-3',
+        id: 'NPST-101',
+        project: 'NPST',
+        epicId: 'EPIC-NP-1',
         type: 'story',
         role: 'BA',
-        summary: '[BA] Business specs for Monthly Reconciliation Report (CSV/Excel)',
-        description: 'Need columns: Transaction ID, Timestamp, Merchant, Fee, Net Amount, Status.',
-        priority: 'low',
+        summary: '[BA] Specification for PST Role-Based Dashboard Navigation',
+        description: 'Separate views for Admin, Supervisor, and Field Agent.',
+        priority: 'medium',
         status: 'todo',
-        sprint: 'BACKLOG',
-        assignee: 'Rian (Lead BA)',
+        sprint: 'SPRINT-1',
+        assignee: 'ardvarez@gmail.com (You)',
         comments: [],
-        createdAt: '2026-10-18'
+        createdAt: '2026-10-19'
       }
     ];
 
     let state = {
       user: JSON.parse(localStorage.getItem('jira_session')) || null,
-      project: localStorage.getItem('jira_current_project') || 'CORE',
+      project: localStorage.getItem('jira_current_project') || 'PINSP',
       view: 'scrum',
       swimlane: 'epic',
       roleFilter: 'ALL',
@@ -822,12 +851,18 @@
     // PROJECT LOGIC
     function changeProject(proj) {
       state.project = proj;
-      document.getElementById('project-icon').textContent = proj.slice(0, 2);
-      const names = {
-        'CORE': 'Core Platform',
-        'PAY': 'Payment Gateway',
-        'MOBI': 'Mobile Apps'
+      document.getElementById('project-selector').value = proj;
+      const icons = {
+        'PINSP': 'PI',
+        'PSWIFT': 'PS',
+        'NPST': 'NP'
       };
+      const names = {
+        'PINSP': 'Power Inspect',
+        'PSWIFT': 'Power Swift',
+        'NPST': 'New PST'
+      };
+      document.getElementById('project-icon').textContent = icons[proj] || proj.slice(0, 2);
       document.getElementById('project-name-display').textContent = names[proj] || proj;
       document.getElementById('crumb-project').textContent = names[proj] || proj;
       saveState();
